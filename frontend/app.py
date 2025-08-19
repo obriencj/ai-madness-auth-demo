@@ -20,10 +20,13 @@ def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'access_token' not in session:
+            print("Admin required: No access token in session")
             return redirect(url_for('login'))
         if not session.get('is_admin'):
+            print(f"Admin required: User is not admin. Session: {session}")
             flash('Admin privileges required', 'error')
             return redirect(url_for('dashboard'))
+        print(f"Admin required: User is admin, proceeding")
         return f(*args, **kwargs)
     return decorated_function
 
@@ -80,16 +83,28 @@ def dashboard():
 def admin():
     try:
         headers = {'Authorization': f'Bearer {session["access_token"]}'}
+        print(f"Admin route: Making request to {BACKEND_URL}/api/v1/users")
         response = requests.get(f'{BACKEND_URL}/api/v1/users', headers=headers)
+        print(f"Admin route: Response status: {response.status_code}")
         
         if response.status_code == 200:
             users = response.json()['users']
+            print(f"Admin route: Loaded {len(users)} users")
         else:
             users = []
-            flash('Failed to load users', 'error')
-    except requests.RequestException:
+            error_msg = f'Failed to load users: {response.status_code}'
+            if response.status_code != 500:
+                try:
+                    error_data = response.json()
+                    error_msg += f' - {error_data.get("error", "Unknown error")}'
+                except:
+                    pass
+            flash(error_msg, 'error')
+            print(f"Admin route: {error_msg}")
+    except requests.RequestException as e:
         users = []
-        flash('Connection error', 'error')
+        flash(f'Connection error: {str(e)}', 'error')
+        print(f"Admin route: Connection error - {str(e)}")
     
     return render_template('admin.html', users=users)
 
@@ -103,7 +118,7 @@ def hello():
         if response.status_code == 200:
             message = response.json()['message']
         else:
-            message = 'Error fetching message'
+            message = f'Error fetching message: {response.status_code}'
     except requests.RequestException:
         message = 'Connection error'
     

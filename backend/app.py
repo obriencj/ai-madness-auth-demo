@@ -145,22 +145,33 @@ def register_user():
 @app.route('/api/v1/users', methods=['GET'])
 @jwt_required()
 def get_users():
-    current_user_id = get_jwt_identity()
-    current_user = User.query.get(current_user_id)
-    
-    if not current_user or not current_user.is_admin:
-        return jsonify({'error': 'Admin privileges required'}), 403
-    
-    users = User.query.all()
-    return jsonify({
-        'users': [{
-            'id': user.id,
-            'username': user.username,
-            'email': user.email,
-            'is_admin': user.is_admin,
-            'is_active': user.is_active
-        } for user in users]
-    }), 200
+    try:
+        current_user_id = get_jwt_identity()
+        print(f"Users endpoint: Called by user ID: {current_user_id}")
+        current_user = User.query.get(current_user_id)
+        
+        if not current_user:
+            print(f"Users endpoint: User not found for ID: {current_user_id}")
+            return jsonify({'error': 'User not found'}), 404
+        
+        if not current_user.is_admin:
+            print(f"Users endpoint: User {current_user.username} is not admin")
+            return jsonify({'error': 'Admin privileges required'}), 403
+        
+        users = User.query.all()
+        print(f"Users endpoint: Returning {len(users)} users")
+        return jsonify({
+            'users': [{
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'is_admin': user.is_admin,
+                'is_active': user.is_active
+            } for user in users]
+        }), 200
+    except Exception as e:
+        print(f"Users endpoint: Error - {e}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/api/v1/users/<int:user_id>', methods=['PUT'])
 @jwt_required()
