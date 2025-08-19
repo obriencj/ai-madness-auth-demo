@@ -17,7 +17,7 @@ INSERT INTO "user" (username, email, password_hash, is_admin, is_active)
 VALUES (
     'admin',
     'admin@example.com',
-    '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj4tbQJ6qKqK',
+    '$2b$12$qS6c0mpobRVHTmk6brL7JuOeGghuI6wC2DeUFkUVgBa6t1/mYy43q',
     TRUE,
     TRUE
 ) ON CONFLICT (username) DO NOTHING;
