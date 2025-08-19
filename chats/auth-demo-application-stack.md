@@ -115,6 +115,33 @@ The user requested a complete application stack demonstrating Redis and JWT auth
 - Better DevOps practices
 - Version-controlled schema
 
+### Phase 6: Production WSGI Server Migration
+
+**User Request:** Convert frontend and backend containers to use Gunicorn
+
+**Files Modified:**
+- `backend/requirements.txt` - Added gunicorn dependency
+- `frontend/requirements.txt` - Added gunicorn dependency
+- `backend/Dockerfile` - Updated to use gunicorn command
+- `frontend/Dockerfile` - Updated to use gunicorn command
+- `backend/app.py` - Removed development server code
+- `frontend/app.py` - Removed development server code
+- `docker-compose.yml` - Removed development environment variables
+
+**Changes Made:**
+- Replaced Flask development server with Gunicorn WSGI server
+- Configured 4 worker processes for better performance
+- Set 120-second timeout for long-running requests
+- Removed development environment variables
+- Removed volume mounts for production deployment
+
+**Benefits:**
+- Production-grade WSGI server
+- Better performance and stability
+- Multiple worker processes for concurrency
+- Proper timeout handling
+- Production-ready configuration
+
 ## Final Architecture
 
 ### Services:

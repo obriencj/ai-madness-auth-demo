@@ -225,5 +225,6 @@ def init_db():
         print(f"Database connection error: {e}")
         raise
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+# Application entry point for Gunicorn
+# if __name__ == '__main__':
+#     app.run(host='0.0.0.0', port=5000, debug=True)

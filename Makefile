@@ -26,7 +26,7 @@ build:
 # Start the application stack
 start:
 	@echo "Starting Auth Demo Application Stack..."
-	$(COMPOSE_CMD) up --build -d
+	$(COMPOSE_CMD) up --build
 	@echo "Waiting for services to be ready..."
 	@sleep 10
 	@echo ""

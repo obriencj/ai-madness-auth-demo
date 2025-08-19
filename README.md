@@ -81,6 +81,7 @@ The project includes a Makefile for easy management:
 
 ### Backend Service (Port 5000)
 - Flask application with JWT authentication
+- Gunicorn WSGI server for production deployment
 - PostgreSQL integration for user management
 - Redis integration for token blacklisting
 - CORS enabled for frontend communication
@@ -88,6 +89,7 @@ The project includes a Makefile for easy management:
 
 ### Frontend Service (Port 8000)
 - Flask web application with session management
+- Gunicorn WSGI server for production deployment
 - Jinja2 templates with Bootstrap styling
 - Minimal JavaScript for enhanced UX
 - Admin dashboard for user management
