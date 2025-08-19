@@ -31,9 +31,9 @@ start:
 	@sleep 10
 	@echo ""
 	@echo "Application is starting up!"
-	@echo "Application: http://localhost"
-	@echo "Frontend: http://localhost (served under /)"
-	@echo "Backend API: http://localhost/api/v1"
+	@echo "Application: http://localhost:8080"
+	@echo "Frontend: http://localhost:8080 (served under /)"
+	@echo "Backend API: http://localhost:8080/api/v1"
 	@echo ""
 	@echo "Default admin credentials:"
 	@echo "Username: admin"

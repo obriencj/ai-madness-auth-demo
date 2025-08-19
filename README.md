@@ -61,9 +61,9 @@ The project includes a Makefile for easy management:
 - `make clean` - Stop and remove all containers, networks, and volumes
 
 3. **Access the application:**
-   - Application: http://localhost
-   - Frontend: http://localhost (served under /)
-   - Backend API: http://localhost/api/v1
+   - Application: http://localhost:8080
+   - Frontend: http://localhost:8080 (served under /)
+   - Backend API: http://localhost:8080/api/v1
    - PostgreSQL: localhost:5432
    - Redis: localhost:6379
 
@@ -73,7 +73,7 @@ The project includes a Makefile for easy management:
 
 ## Service Details
 
-### Nginx Proxy Service (Port 80)
+### Nginx Proxy Service (Port 8080)
 - Reverse proxy for unified interface
 - Routes frontend requests to port 8000
 - Routes API requests to port 5000
@@ -110,20 +110,20 @@ The project includes a Makefile for easy management:
 
 ### Login
 ```bash
-curl -X POST http://localhost/api/v1/auth/login \
+curl -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username": "admin", "password": "admin123"}'
 ```
 
 ### Access Protected Endpoint
 ```bash
-curl -X GET http://localhost/api/v1/hello \
+curl -X GET http://localhost:8080/api/v1/hello \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
 ### Create User (Admin Only)
 ```bash
-curl -X POST http://localhost/api/v1/register \
+curl -X POST http://localhost:8080/api/v1/register \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"username": "newuser", "email": "user@example.com", "password": "password123"}'
