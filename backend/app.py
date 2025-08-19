@@ -62,10 +62,6 @@ def login():
     if user and user.check_password(data['password']) and user.is_active:
         access_token = create_access_token(identity=user.id)
         
-        # Store token in Redis for session management
-        jti = get_jwt()["jti"]
-        redis_client.setex(jti, timedelta(hours=1), "true")
-        
         return jsonify({
             'access_token': access_token,
             'user': {
