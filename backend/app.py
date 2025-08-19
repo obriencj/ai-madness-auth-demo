@@ -673,6 +673,356 @@ def connect_oauth_provider(provider):
     return jsonify({'message': 'OAuth provider connection not yet implemented'}), 501
 
 
+# User Account Management Routes
+@app.route('/api/v1/auth/account', methods=['GET'])
+@jwt_required()
+def get_user_account():
+    """Get current user's account information including OAuth accounts"""
+    current_username = get_jwt_identity()
+    user = User.query.filter_by(username=current_username).first()
+    
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    # Get OAuth accounts for this user
+    oauth_accounts = []
+    for oauth_account in user.oauth_accounts:
+        oauth_accounts.append({
+            'id': oauth_account.id,
+            'provider': oauth_account.provider.name,
+            'provider_user_id': oauth_account.provider_user_id,
+            'connected_at': oauth_account.created_at.isoformat() if oauth_account.created_at else None
+        })
+    
+    return jsonify({
+        'user': {
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'is_admin': user.is_admin,
+            'is_active': user.is_active,
+            'has_password': user.password_hash is not None,
+            'oauth_accounts': oauth_accounts
+        }
+    }), 200
+
+
+@app.route('/api/v1/auth/account', methods=['PUT'])
+@jwt_required()
+def update_user_account():
+    """Update current user's account information"""
+    current_username = get_jwt_identity()
+    user = User.query.filter_by(username=current_username).first()
+    
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    data = request.get_json()
+    
+    # Users can only update certain fields
+    if 'email' in data:
+        # Check if email is already taken by another user
+        existing_user = User.query.filter_by(email=data['email']).first()
+        if existing_user and existing_user.id != user.id:
+            return jsonify({'error': 'Email already exists'}), 400
+        user.email = data['email']
+    
+    if 'password' in data and data['password']:
+        user.set_password(data['password'])
+    
+    try:
+        db.session.commit()
+        return jsonify({
+            'message': 'Account updated successfully',
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'is_admin': user.is_admin,
+                'is_active': user.is_active
+            }
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': 'Failed to update account'}), 500
+
+
+@app.route('/api/v1/auth/account/oauth/<int:oauth_account_id>', methods=['DELETE'])
+@jwt_required()
+def remove_oauth_account(oauth_account_id):
+    """Remove OAuth account from current user"""
+    current_username = get_jwt_identity()
+    user = User.query.filter_by(username=current_username).first()
+    
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    # Find the OAuth account and verify it belongs to the current user
+    oauth_account = OAuthAccount.query.filter_by(
+        id=oauth_account_id, user_id=user.id
+    ).first()
+    
+    if not oauth_account:
+        return jsonify({'error': 'OAuth account not found'}), 404
+    
+    # Check if user would be left without any authentication method
+    if not user.password_hash and len(user.oauth_accounts) <= 1:
+        return jsonify({
+            'error': 'Cannot remove OAuth account. You must have at least one authentication method.'
+        }), 400
+    
+    try:
+        db.session.delete(oauth_account)
+        db.session.commit()
+        return jsonify({'message': 'OAuth account removed successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': 'Failed to remove OAuth account'}), 500
+
+
+# Admin OAuth Management Routes
+@app.route('/api/v1/users/<int:user_id>/oauth-accounts', methods=['GET'])
+@jwt_required()
+def get_user_oauth_accounts(user_id):
+    """Get OAuth accounts for a specific user (admin only)"""
+    current_username = get_jwt_identity()
+    current_user = User.query.filter_by(username=current_username).first()
+    
+    if not current_user or not current_user.is_admin:
+        return jsonify({'error': 'Admin privileges required'}), 403
+    
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    oauth_accounts = []
+    for oauth_account in user.oauth_accounts:
+        oauth_accounts.append({
+            'id': oauth_account.id,
+            'provider': oauth_account.provider.name,
+            'provider_user_id': oauth_account.provider_user_id,
+            'connected_at': oauth_account.created_at.isoformat() if oauth_account.created_at else None
+        })
+    
+    return jsonify({
+        'user_id': user.id,
+        'username': user.username,
+        'oauth_accounts': oauth_accounts
+    }), 200
+
+
+@app.route('/api/v1/users/<int:user_id>/oauth-accounts/<int:oauth_account_id>', methods=['DELETE'])
+@jwt_required()
+def admin_remove_user_oauth_account(user_id, oauth_account_id):
+    """Remove OAuth account from a user (admin only)"""
+    current_username = get_jwt_identity()
+    current_user = User.query.filter_by(username=current_username).first()
+    
+    if not current_user or not current_user.is_admin:
+        return jsonify({'error': 'Admin privileges required'}), 403
+    
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    oauth_account = OAuthAccount.query.filter_by(
+        id=oauth_account_id, user_id=user.id
+    ).first()
+    
+    if not oauth_account:
+        return jsonify({'error': 'OAuth account not found'}), 404
+    
+    # Check if user would be left without any authentication method
+    if not user.password_hash and len(user.oauth_accounts) <= 1:
+        return jsonify({
+            'error': 'Cannot remove OAuth account. User must have at least one authentication method.'
+        }), 400
+    
+    try:
+        db.session.delete(oauth_account)
+        db.session.commit()
+        return jsonify({'message': 'OAuth account removed successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': 'Failed to remove OAuth account'}), 500
+
+
+# OAuth Provider Management Routes (Admin Only)
+@app.route('/api/v1/admin/oauth-providers', methods=['GET'])
+@jwt_required()
+def get_oauth_providers_admin():
+    """Get all OAuth providers (admin only)"""
+    current_username = get_jwt_identity()
+    current_user = User.query.filter_by(username=current_username).first()
+    
+    if not current_user or not current_user.is_admin:
+        return jsonify({'error': 'Admin privileges required'}), 403
+    
+    providers = OAuthProvider.query.all()
+    return jsonify({
+        'providers': [{
+            'id': provider.id,
+            'name': provider.name,
+            'client_id': provider.client_id,
+            'client_secret': '***' if provider.client_secret else None,  # Hide secrets
+            'authorize_url': provider.authorize_url,
+            'token_url': provider.token_url,
+            'userinfo_url': provider.userinfo_url,
+            'is_active': provider.is_active,
+            'created_at': provider.created_at.isoformat() if provider.created_at else None
+        } for provider in providers]
+    }), 200
+
+
+@app.route('/api/v1/admin/oauth-providers', methods=['POST'])
+@jwt_required()
+def create_oauth_provider():
+    """Create new OAuth provider (admin only)"""
+    current_username = get_jwt_identity()
+    current_user = User.query.filter_by(username=current_username).first()
+    
+    if not current_user or not current_user.is_admin:
+        return jsonify({'error': 'Admin privileges required'}), 403
+    
+    data = request.get_json()
+    
+    # Validate required fields
+    required_fields = ['name', 'client_id', 'client_secret', 'authorize_url', 'token_url', 'userinfo_url']
+    for field in required_fields:
+        if not data.get(field):
+            return jsonify({'error': f'Missing required field: {field}'}), 400
+    
+    # Check if provider name already exists
+    if OAuthProvider.query.filter_by(name=data['name']).first():
+        return jsonify({'error': 'Provider name already exists'}), 400
+    
+    # Create new provider
+    new_provider = OAuthProvider(
+        name=data['name'],
+        client_id=data['client_id'],
+        client_secret=data['client_secret'],
+        authorize_url=data['authorize_url'],
+        token_url=data['token_url'],
+        userinfo_url=data['userinfo_url'],
+        is_active=data.get('is_active', True)
+    )
+    
+    try:
+        db.session.add(new_provider)
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'OAuth provider created successfully',
+            'provider': {
+                'id': new_provider.id,
+                'name': new_provider.name,
+                'client_id': new_provider.client_id,
+                'client_secret': '***',
+                'authorize_url': new_provider.authorize_url,
+                'token_url': new_provider.token_url,
+                'userinfo_url': new_provider.userinfo_url,
+                'is_active': new_provider.is_active
+            }
+        }), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Failed to create provider: {str(e)}'}), 500
+
+
+@app.route('/api/v1/admin/oauth-providers/<int:provider_id>', methods=['PUT'])
+@jwt_required()
+def update_oauth_provider(provider_id):
+    """Update OAuth provider (admin only)"""
+    current_username = get_jwt_identity()
+    current_user = User.query.filter_by(username=current_username).first()
+    
+    if not current_user or not current_user.is_admin:
+        return jsonify({'error': 'Admin privileges required'}), 403
+    
+    provider = OAuthProvider.query.get(provider_id)
+    if not provider:
+        return jsonify({'error': 'OAuth provider not found'}), 404
+    
+    data = request.get_json()
+    
+    # Update fields if provided
+    if 'name' in data:
+        # Check if new name conflicts with existing provider
+        existing_provider = OAuthProvider.query.filter_by(name=data['name']).first()
+        if existing_provider and existing_provider.id != provider_id:
+            return jsonify({'error': 'Provider name already exists'}), 400
+        provider.name = data['name']
+    
+    if 'client_id' in data:
+        provider.client_id = data['client_id']
+    
+    if 'client_secret' in data and data['client_secret']:
+        provider.client_secret = data['client_secret']
+    
+    if 'authorize_url' in data:
+        provider.authorize_url = data['authorize_url']
+    
+    if 'token_url' in data:
+        provider.token_url = data['token_url']
+    
+    if 'userinfo_url' in data:
+        provider.userinfo_url = data['userinfo_url']
+    
+    if 'is_active' in data:
+        provider.is_active = data['is_active']
+    
+    try:
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'OAuth provider updated successfully',
+            'provider': {
+                'id': provider.id,
+                'name': provider.name,
+                'client_id': provider.client_id,
+                'client_secret': '***',
+                'authorize_url': provider.authorize_url,
+                'token_url': provider.token_url,
+                'userinfo_url': provider.userinfo_url,
+                'is_active': provider.is_active
+            }
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Failed to update provider: {str(e)}'}), 500
+
+
+@app.route('/api/v1/admin/oauth-providers/<int:provider_id>', methods=['DELETE'])
+@jwt_required()
+def delete_oauth_provider(provider_id):
+    """Delete OAuth provider (admin only)"""
+    current_username = get_jwt_identity()
+    current_user = User.query.filter_by(username=current_username).first()
+    
+    if not current_user or not current_user.is_admin:
+        return jsonify({'error': 'Admin privileges required'}), 403
+    
+    provider = OAuthProvider.query.get(provider_id)
+    if not provider:
+        return jsonify({'error': 'OAuth provider not found'}), 404
+    
+    # Check if provider has connected accounts
+    connected_accounts = OAuthAccount.query.filter_by(provider_id=provider_id).count()
+    if connected_accounts > 0:
+        return jsonify({
+            'error': f'Cannot delete provider. {connected_accounts} user(s) have connected accounts.'
+        }), 400
+    
+    try:
+        db.session.delete(provider)
+        db.session.commit()
+        
+        return jsonify({'message': 'OAuth provider deleted successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Failed to delete provider: {str(e)}'}), 500
+
+
 # Application entry point for Gunicorn
 # if __name__ == '__main__':
 #     app.run(host='0.0.0.0', port=5000, debug=True)

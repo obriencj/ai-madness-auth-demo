@@ -106,6 +106,22 @@ def admin():
         if response.status_code == 200:
             users = response.json()['users']
             print(f"Admin route: Loaded {len(users)} users")
+            
+            # Fetch OAuth account information for each user
+            for user in users:
+                try:
+                    oauth_response = requests.get(
+                        f'{BACKEND_URL}/api/v1/users/{user["id"]}/oauth-accounts',
+                        headers=headers
+                    )
+                    if oauth_response.status_code == 200:
+                        oauth_data = oauth_response.json()
+                        user['oauth_accounts'] = oauth_data['oauth_accounts']
+                    else:
+                        user['oauth_accounts'] = []
+                except requests.RequestException:
+                    user['oauth_accounts'] = []
+                    print(f"Failed to fetch OAuth accounts for user {user['id']}")
         else:
             users = []
             error_msg = f'Failed to load users: {response.status_code}'
@@ -195,6 +211,140 @@ def update_user(user_id):
         flash('Connection error', 'error')
     
     return redirect(url_for('admin'))
+
+
+@app.route('/api/users/<int:user_id>/oauth-accounts/<int:oauth_account_id>/remove', methods=['POST'])
+@admin_required
+def admin_remove_user_oauth_account(user_id, oauth_account_id):
+    """Admin remove OAuth account from a user"""
+    try:
+        headers = {'Authorization': f'Bearer {session["access_token"]}'}
+        response = requests.delete(
+            f'{BACKEND_URL}/api/v1/users/{user_id}/oauth-accounts/{oauth_account_id}',
+            headers=headers
+        )
+        
+        if response.status_code == 200:
+            flash('OAuth account removed successfully', 'success')
+        else:
+            error_data = response.json()
+            flash(f'Error: {error_data.get("error", "Unknown error")}', 'error')
+    except requests.RequestException:
+        flash('Connection error', 'error')
+    
+    return redirect(url_for('admin'))
+
+
+@app.route('/admin/oauth-providers')
+@admin_required
+def oauth_providers():
+    """OAuth provider management page"""
+    try:
+        headers = {'Authorization': f'Bearer {session["access_token"]}'}
+        response = requests.get(
+            f'{BACKEND_URL}/api/v1/admin/oauth-providers',
+            headers=headers
+        )
+        
+        if response.status_code == 200:
+            providers_data = response.json()
+            return render_template('oauth_providers.html', providers=providers_data['providers'])
+        else:
+            flash('Failed to load OAuth providers', 'error')
+            return redirect(url_for('admin'))
+    except requests.RequestException:
+        flash('Connection error', 'error')
+        return redirect(url_for('admin'))
+
+
+@app.route('/admin/oauth-providers/create', methods=['POST'])
+@admin_required
+def create_oauth_provider():
+    """Create new OAuth provider"""
+    data = {
+        'name': request.form.get('name'),
+        'client_id': request.form.get('client_id'),
+        'client_secret': request.form.get('client_secret'),
+        'authorize_url': request.form.get('authorize_url'),
+        'token_url': request.form.get('token_url'),
+        'userinfo_url': request.form.get('userinfo_url'),
+        'is_active': request.form.get('is_active') == 'on'
+    }
+    
+    try:
+        headers = {'Authorization': f'Bearer {session["access_token"]}'}
+        response = requests.post(
+            f'{BACKEND_URL}/api/v1/admin/oauth-providers',
+            json=data, headers=headers
+        )
+        
+        if response.status_code == 201:
+            flash('OAuth provider created successfully', 'success')
+        else:
+            error_data = response.json()
+            flash(f'Error: {error_data.get("error", "Unknown error")}', 'error')
+    except requests.RequestException:
+        flash('Connection error', 'error')
+    
+    return redirect(url_for('oauth_providers'))
+
+
+@app.route('/admin/oauth-providers/<int:provider_id>/update', methods=['POST'])
+@admin_required
+def update_oauth_provider(provider_id):
+    """Update OAuth provider"""
+    data = {
+        'name': request.form.get('name'),
+        'client_id': request.form.get('client_id'),
+        'authorize_url': request.form.get('authorize_url'),
+        'token_url': request.form.get('token_url'),
+        'userinfo_url': request.form.get('userinfo_url'),
+        'is_active': request.form.get('is_active') == 'on'
+    }
+    
+    # Only include client_secret if it's provided (to avoid overwriting with empty string)
+    client_secret = request.form.get('client_secret')
+    if client_secret:
+        data['client_secret'] = client_secret
+    
+    try:
+        headers = {'Authorization': f'Bearer {session["access_token"]}'}
+        response = requests.put(
+            f'{BACKEND_URL}/api/v1/admin/oauth-providers/{provider_id}',
+            json=data, headers=headers
+        )
+        
+        if response.status_code == 200:
+            flash('OAuth provider updated successfully', 'success')
+        else:
+            error_data = response.json()
+            flash(f'Error: {error_data.get("error", "Unknown error")}', 'error')
+    except requests.RequestException:
+        flash('Connection error', 'error')
+    
+    return redirect(url_for('oauth_providers'))
+
+
+@app.route('/admin/oauth-providers/<int:provider_id>/delete', methods=['POST'])
+@admin_required
+def delete_oauth_provider(provider_id):
+    """Delete OAuth provider"""
+    try:
+        headers = {'Authorization': f'Bearer {session["access_token"]}'}
+        response = requests.delete(
+            f'{BACKEND_URL}/api/v1/admin/oauth-providers/{provider_id}',
+            headers=headers
+        )
+        
+        if response.status_code == 200:
+            flash('OAuth provider deleted successfully', 'success')
+        else:
+            error_data = response.json()
+            flash(f'Error: {error_data.get("error", "Unknown error")}', 'error')
+    except requests.RequestException:
+        flash('Connection error', 'error')
+    
+    return redirect(url_for('oauth_providers'))
 
 
 # OAuth Routes
@@ -309,6 +459,82 @@ def register():
             flash('Connection error', 'error')
     
     return render_template('register.html', oauth_providers=OAUTH_PROVIDERS)
+
+
+@app.route('/account')
+@login_required
+def account():
+    """User account management page"""
+    try:
+        headers = {'Authorization': f'Bearer {session["access_token"]}'}
+        response = requests.get(
+            f'{BACKEND_URL}/api/v1/auth/account',
+            headers=headers
+        )
+        
+        if response.status_code == 200:
+            account_data = response.json()
+            return render_template('account.html', account=account_data['user'])
+        else:
+            flash('Failed to load account information', 'error')
+            return redirect(url_for('dashboard'))
+    except requests.RequestException:
+        flash('Connection error', 'error')
+        return redirect(url_for('dashboard'))
+
+
+@app.route('/account/update', methods=['POST'])
+@login_required
+def update_account():
+    """Update user account information"""
+    data = {
+        'email': request.form.get('email')
+    }
+    
+    password = request.form.get('password')
+    if password:
+        data['password'] = password
+    
+    try:
+        headers = {'Authorization': f'Bearer {session["access_token"]}'}
+        response = requests.put(
+            f'{BACKEND_URL}/api/v1/auth/account',
+            json=data, headers=headers
+        )
+        
+        if response.status_code == 200:
+            flash('Account updated successfully', 'success')
+            # Update session data
+            session['user']['email'] = data['email']
+        else:
+            error_data = response.json()
+            flash(f'Error: {error_data.get("error", "Unknown error")}', 'error')
+    except requests.RequestException:
+        flash('Connection error', 'error')
+    
+    return redirect(url_for('account'))
+
+
+@app.route('/account/oauth/<int:oauth_account_id>/remove', methods=['POST'])
+@login_required
+def remove_oauth_account(oauth_account_id):
+    """Remove OAuth account from user"""
+    try:
+        headers = {'Authorization': f'Bearer {session["access_token"]}'}
+        response = requests.delete(
+            f'{BACKEND_URL}/api/v1/auth/account/oauth/{oauth_account_id}',
+            headers=headers
+        )
+        
+        if response.status_code == 200:
+            flash('OAuth account removed successfully', 'success')
+        else:
+            error_data = response.json()
+            flash(f'Error: {error_data.get("error", "Unknown error")}', 'error')
+    except requests.RequestException:
+        flash('Connection error', 'error')
+    
+    return redirect(url_for('account'))
 
 
 # Application entry point for Gunicorn

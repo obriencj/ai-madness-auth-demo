@@ -25,11 +25,16 @@ A complete demonstration of JWT authentication with Redis session management, fe
 - `GET /api/v1/auth/oauth/<provider>/authorize` - OAuth authorization
 - `GET /api/v1/auth/oauth/<provider>/callback` - OAuth callback handling
 - `GET /api/v1/auth/oauth/providers` - List available OAuth providers
+- `GET /api/v1/admin/oauth-providers` - Get all OAuth providers (admin)
+- `POST /api/v1/admin/oauth-providers` - Create new OAuth provider (admin)
+- `PUT /api/v1/admin/oauth-providers/<id>` - Update OAuth provider (admin)
+- `DELETE /api/v1/admin/oauth-providers/<id>` - Delete OAuth provider (admin)
 
 ### Frontend Features
 - User login/logout with session management
 - **OAuth login support (Google, GitHub)**
 - **User self-registration**
+- **OAuth provider management (admin)**
 - Admin dashboard for user management
 - Hello world page demonstrating API integration
 - Responsive Bootstrap UI
