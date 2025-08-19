@@ -213,17 +213,7 @@ def get_current_user():
         }
     }), 200
 
-# Initialize database connection
-@app.before_first_request
-def init_db():
-    # Ensure database connection is established
-    try:
-        with db.engine.connect() as conn:
-            conn.execute(db.text('SELECT 1'))
-        print("Database connection established successfully")
-    except Exception as e:
-        print(f"Database connection error: {e}")
-        raise
+
 
 # Application entry point for Gunicorn
 # if __name__ == '__main__':
