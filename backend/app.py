@@ -26,14 +26,17 @@ CORS(app)
 # JWT error handlers
 @jwt.expired_token_loader
 def expired_token_callback(jwt_header, jwt_payload):
+    print(f"JWT expired token callback: {jwt_payload}")
     return jsonify({'error': 'Token has expired'}), 401
 
 @jwt.invalid_token_loader
 def invalid_token_callback(error):
+    print(f"JWT invalid token callback: {error}")
     return jsonify({'error': 'Invalid token'}), 401
 
 @jwt.unauthorized_loader
 def missing_token_callback(error):
+    print(f"JWT missing token callback: {error}")
     return jsonify({'error': 'Missing authorization token'}), 401
 
 # Redis connection
@@ -215,6 +218,10 @@ def update_user(user_id):
             'is_active': user.is_active
         }
     }), 200
+
+@app.route('/api/v1/test', methods=['GET'])
+def test():
+    return jsonify({'message': 'Backend is working'}), 200
 
 @app.route('/api/v1/hello', methods=['GET'])
 @jwt_required()
