@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}Hello - Auth Demo{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h4>Hello World Endpoint Test</h4>
+            </div>
+            <div class="card-body text-center">
+                <h2 class="display-4">{{ message }}</h2>
+                <p class="lead">This message was fetched from the backend API using JWT authentication.</p>
+                <div class="mt-4">
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-primary">Back to Dashboard</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

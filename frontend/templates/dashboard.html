@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Auth Demo{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h4>Welcome, {{ session.user.username }}!</h4>
+            </div>
+            <div class="card-body">
+                <p>You are successfully logged in to the Auth Demo application.</p>
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5>User Information</h5>
+                        <ul class="list-unstyled">
+                            <li><strong>Username:</strong> {{ session.user.username }}</li>
+                            <li><strong>Email:</strong> {{ session.user.email }}</li>
+                            <li><strong>Role:</strong> {{ 'Administrator' if session.user.is_admin else 'User' }}</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h5>Available Actions</h5>
+                        <div class="d-grid gap-2">
+                            <a href="{{ url_for('hello') }}" class="btn btn-outline-primary">Test Hello Endpoint</a>
+                            {% if session.is_admin %}
+                            <a href="{{ url_for('admin') }}" class="btn btn-outline-success">Manage Users</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5>Session Info</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>JWT Token:</strong> Active</p>
+                <p><strong>Redis Session:</strong> Active</p>
+                <p><strong>Database:</strong> Connected</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
