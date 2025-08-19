@@ -23,6 +23,19 @@ db = SQLAlchemy(app)
 jwt = JWTManager(app)
 CORS(app)
 
+# JWT error handlers
+@jwt.expired_token_loader
+def expired_token_callback(jwt_header, jwt_payload):
+    return jsonify({'error': 'Token has expired'}), 401
+
+@jwt.invalid_token_loader
+def invalid_token_callback(error):
+    return jsonify({'error': 'Invalid token'}), 401
+
+@jwt.unauthorized_loader
+def missing_token_callback(error):
+    return jsonify({'error': 'Missing authorization token'}), 401
+
 # Redis connection
 redis_client = redis.from_url(os.getenv('REDIS_URL', 'redis://localhost:6379'))
 
@@ -45,9 +58,15 @@ class User(db.Model):
 # JWT token blocklist
 @jwt.token_in_blocklist_loader
 def check_if_token_in_blocklist(jwt_header, jwt_payload):
-    jti = jwt_payload["jti"]
-    token_in_redis = redis_client.get(jti)
-    return token_in_redis is not None
+    try:
+        jti = jwt_payload.get("jti")
+        if not jti:
+            return False
+        token_in_redis = redis_client.get(jti)
+        return token_in_redis is not None
+    except Exception as e:
+        print(f"Error checking token blocklist: {e}")
+        return False
 
 # Routes
 @app.route('/api/v1/auth/login', methods=['POST'])
@@ -189,7 +208,13 @@ def update_user(user_id):
 @app.route('/api/v1/hello', methods=['GET'])
 @jwt_required()
 def hello():
-    return jsonify({'message': 'hello world'}), 200
+    try:
+        current_user_id = get_jwt_identity()
+        print(f"Hello endpoint called by user ID: {current_user_id}")
+        return jsonify({'message': 'hello world'}), 200
+    except Exception as e:
+        print(f"Error in hello endpoint: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/api/v1/me', methods=['GET'])
 @jwt_required()
