@@ -142,6 +142,51 @@ The user requested a complete application stack demonstrating Redis and JWT auth
 - Proper timeout handling
 - Production-ready configuration
 
+### Phase 7: Authentication and API Troubleshooting
+
+**Issues Discovered:**
+- Admin dashboard failing to load user list
+- Hello endpoint returning 401 "Invalid token" errors
+- JWT validation problems
+
+**Debugging Process:**
+
+#### **Issue 1: Backend API Connection Problems**
+- **Problem**: 502 Bad Gateway errors when accessing API endpoints
+- **Root Cause**: Stale DNS resolution in nginx container after backend restarts
+- **Solution**: Restart nginx container to refresh DNS resolution
+- **Files Affected**: nginx service configuration
+
+#### **Issue 2: JWT Validation Failures**
+- **Problem**: All JWT-protected endpoints returning "Invalid token" errors
+- **Symptoms**: "Subject must be a string" and "Not enough segments" JWT errors
+- **Root Cause**: JWT identity using `user.id` (integer) instead of `user.username` (string)
+- **Solution**: Change JWT identity to use username for all endpoints
+
+**Files Modified:**
+- `backend/app.py` - JWT configuration and identity fixes
+- Added comprehensive JWT error handlers with debugging
+- Fixed JWT token creation to use username instead of user ID
+- Updated all protected endpoints to use username-based user lookup
+
+**Technical Details:**
+- Added explicit JWT configuration: algorithm, token location, header type
+- Changed `create_access_token(identity=user.id)` to `create_access_token(identity=user.username)`
+- Updated all `get_jwt_identity()` calls to expect username strings
+- Modified user lookups from `User.query.get(user_id)` to `User.query.filter_by(username=username).first()`
+
+**Debugging Tools Added:**
+- JWT error handlers with detailed logging
+- Test endpoint `/api/v1/test` for connectivity verification
+- Enhanced error messages for troubleshooting
+
+**Benefits:**
+- Resolved 401 authentication errors
+- Fixed admin dashboard user loading
+- Fixed hello endpoint functionality
+- Better error handling and debugging
+- Proper JWT validation with string identities
+
 ## Final Architecture
 
 ### Services:
