@@ -1,19 +1,19 @@
 {% extends "base.html" %}
 
-{% block title %}Login - Auth Demo{% endblock %}
+{% block title %}Register - Auth Demo{% endblock %}
 
 {% block content %}
 <div class="container mt-5">
     <div class="row justify-content-center">
-        <div class="col-md-6 col-lg-4">
+        <div class="col-md-6">
             <div class="card">
                 <div class="card-header">
-                    <h3 class="text-center">Login</h3>
+                    <h3 class="text-center">Create Account</h3>
                 </div>
                 <div class="card-body">
                     <!-- OAuth Login Options -->
                     <div class="mb-4">
-                        <p class="text-center text-muted">Or sign in with:</p>
+                        <p class="text-center text-muted">Or sign up with:</p>
                         <div class="d-grid gap-2">
                             {% for provider, config in oauth_providers.items() %}
                             <a href="{{ url_for('oauth_login', provider=provider) }}" 
@@ -28,30 +28,35 @@
                     
                     <hr class="my-4">
                     
-                    <!-- Traditional Login Form -->
+                    <!-- Traditional Registration Form -->
                     <form method="POST">
                         <div class="mb-3">
                             <label for="username" class="form-label">Username</label>
                             <input type="text" class="form-control" id="username" name="username" required>
                         </div>
+                        
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="email" name="email" required>
+                        </div>
+                        
                         <div class="mb-3">
                             <label for="password" class="form-label">Password</label>
                             <input type="password" class="form-control" id="password" name="password" required>
                         </div>
+                        
+                        <div class="mb-3">
+                            <label for="confirm_password" class="form-label">Confirm Password</label>
+                            <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
+                        </div>
+                        
                         <div class="d-grid">
-                            <button type="submit" class="btn btn-primary">Login</button>
+                            <button type="submit" class="btn btn-primary">Create Account</button>
                         </div>
                     </form>
                 </div>
                 <div class="card-footer text-center">
-                    <div class="mb-2">
-                        <small class="text-muted">
-                            Default admin: username=admin, password=admin123
-                        </small>
-                    </div>
-                    <p class="mb-0">
-                        Don't have an account? <a href="{{ url_for('register') }}">Sign up</a>
-                    </p>
+                    <p class="mb-0">Already have an account? <a href="{{ url_for('login') }}">Sign in</a></p>
                 </div>
             </div>
         </div>

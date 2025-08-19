@@ -15,6 +15,8 @@ help:
 	@echo "  logs    - View application logs"
 	@echo "  status  - Show service status"
 	@echo "  clean   - Stop and remove all containers, networks, and volumes"
+	@echo "  oauth-setup - Configure OAuth providers in database"
+	@echo "  oauth-migrate - Run OAuth database migration"
 	@echo ""
 	@echo "Using: $(COMPOSE_CMD)"
 
@@ -66,3 +68,24 @@ clean:
 	@echo "Cleaning up all containers, networks, and volumes..."
 	$(COMPOSE_CMD) down -v --remove-orphans
 	@echo "Cleanup completed!"
+
+# Configure OAuth providers in database
+oauth-setup:
+	@echo "Setting up OAuth providers..."
+	@echo "Make sure you have set the OAuth environment variables:"
+	@echo "  - GOOGLE_CLIENT_ID"
+	@echo "  - GOOGLE_CLIENT_SECRET"
+	@echo "  - GITHUB_CLIENT_ID"
+	@echo "  - GITHUB_CLIENT_SECRET"
+	@echo ""
+	@echo "Running OAuth setup script..."
+	python3 setup_oauth.py
+
+# Run OAuth database migration
+oauth-migrate:
+	@echo "Running OAuth database migration..."
+	@echo "Connecting to database..."
+	@echo "Make sure the database is running (make start)"
+	@echo ""
+	PGPASSWORD=auth_password psql -h localhost -U auth_user -d auth_demo -f init/02-oauth-support.sql
+	@echo "OAuth migration completed!"

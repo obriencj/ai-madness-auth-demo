@@ -8,6 +8,20 @@ app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-change-in-production')
 
 BACKEND_URL = os.getenv('BACKEND_URL', 'http://localhost:5000')
 
+# OAuth Configuration
+OAUTH_PROVIDERS = {
+    'google': {
+        'name': 'Google',
+        'color': '#4285f4',
+        'icon': 'fab fa-google'
+    },
+    'github': {
+        'name': 'GitHub',
+        'color': '#333',
+        'icon': 'fab fa-github'
+    }
+}
+
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -43,8 +57,10 @@ def login():
         password = request.form.get('password')
         
         try:
-            response = requests.post(f'{BACKEND_URL}/api/v1/auth/login', 
-                                   json={'username': username, 'password': password})
+            response = requests.post(
+                f'{BACKEND_URL}/api/v1/auth/login',
+                json={'username': username, 'password': password}
+            )
             
             if response.status_code == 200:
                 data = response.json()
@@ -58,7 +74,7 @@ def login():
         except requests.RequestException:
             flash('Connection error', 'error')
     
-    return render_template('login.html')
+    return render_template('login.html', oauth_providers=OAUTH_PROVIDERS)
 
 @app.route('/logout')
 def logout():
@@ -149,6 +165,7 @@ def create_user():
     
     return redirect(url_for('admin'))
 
+
 @app.route('/api/users/<int:user_id>', methods=['POST'])
 @admin_required
 def update_user(user_id):
@@ -164,8 +181,10 @@ def update_user(user_id):
     
     try:
         headers = {'Authorization': f'Bearer {session["access_token"]}'}
-        response = requests.put(f'{BACKEND_URL}/api/v1/users/{user_id}', 
-                              json=data, headers=headers)
+        response = requests.put(
+            f'{BACKEND_URL}/api/v1/users/{user_id}',
+            json=data, headers=headers
+        )
         
         if response.status_code == 200:
             flash('User updated successfully', 'success')
@@ -176,6 +195,121 @@ def update_user(user_id):
         flash('Connection error', 'error')
     
     return redirect(url_for('admin'))
+
+
+# OAuth Routes
+@app.route('/oauth/<provider>/login')
+def oauth_login(provider):
+    """Initiate OAuth login flow"""
+    if provider not in OAUTH_PROVIDERS:
+        flash('Unsupported OAuth provider', 'error')
+        return redirect(url_for('login'))
+    
+    # Build redirect URI for OAuth callback
+    redirect_uri = url_for('oauth_callback', provider=provider, _external=True)
+    
+    try:
+        response = requests.get(
+            f'{BACKEND_URL}/api/v1/auth/oauth/{provider}/authorize',
+            params={'redirect_uri': redirect_uri}
+        )
+        
+        if response.status_code == 200:
+            auth_data = response.json()
+            return redirect(auth_data['authorization_url'])
+        else:
+            flash('Failed to initiate OAuth login', 'error')
+            return redirect(url_for('login'))
+    except requests.RequestException:
+        flash('Connection error', 'error')
+        return redirect(url_for('login'))
+
+
+@app.route('/oauth/<provider>/callback')
+def oauth_callback(provider):
+    """Handle OAuth callback"""
+    if provider not in OAUTH_PROVIDERS:
+        flash('Unsupported OAuth provider', 'error')
+        return redirect(url_for('login'))
+    
+    code = request.args.get('code')
+    error = request.args.get('error')
+    
+    if error:
+        flash(f'OAuth error: {error}', 'error')
+        return redirect(url_for('login'))
+    
+    if not code:
+        flash('Missing authorization code', 'error')
+        return redirect(url_for('login'))
+    
+    # Build redirect URI for OAuth callback
+    redirect_uri = url_for('oauth_callback', provider=provider, _external=True)
+    
+    try:
+        response = requests.get(
+            f'{BACKEND_URL}/api/v1/auth/oauth/{provider}/callback',
+            params={'code': code, 'redirect_uri': redirect_uri}
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
+            session['access_token'] = data['access_token']
+            session['user'] = data['user']
+            session['is_admin'] = data['user']['is_admin']
+            flash(f'Login successful with {OAUTH_PROVIDERS[provider]["name"]}!', 'success')
+            return redirect(url_for('dashboard'))
+        else:
+            error_data = response.json()
+            flash(f'OAuth error: {error_data.get("error", "Unknown error")}', 'error')
+            return redirect(url_for('login'))
+    except requests.RequestException:
+        flash('Connection error', 'error')
+        return redirect(url_for('login'))
+
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    """User registration page"""
+    if request.method == 'POST':
+        username = request.form.get('username')
+        email = request.form.get('email')
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+        
+        if not all([username, email, password, confirm_password]):
+            flash('All fields are required', 'error')
+            return render_template('register.html')
+        
+        if password != confirm_password:
+            flash('Passwords do not match', 'error')
+            return render_template('register.html')
+        
+        try:
+            response = requests.post(
+                f'{BACKEND_URL}/api/v1/auth/register',
+                json={
+                    'username': username,
+                    'email': email,
+                    'password': password
+                }
+            )
+            
+            if response.status_code == 201:
+                data = response.json()
+                session['access_token'] = data['access_token']
+                session['user'] = data['user']
+                session['is_admin'] = data['user']['is_admin']
+                flash('Registration successful!', 'success')
+                return redirect(url_for('dashboard'))
+            else:
+                error_data = response.json()
+                flash(f'Registration error: {error_data.get("error", "Unknown error")}', 'error')
+        except requests.RequestException:
+            flash('Connection error', 'error')
+    
+    return render_template('register.html', oauth_providers=OAUTH_PROVIDERS)
+
 
 # Application entry point for Gunicorn
 # if __name__ == '__main__':

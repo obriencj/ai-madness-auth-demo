@@ -16,14 +16,20 @@ A complete demonstration of JWT authentication with Redis session management, fe
 ### Backend API Endpoints
 - `POST /api/v1/auth/login` - User authentication
 - `POST /api/v1/auth/logout` - User logout (token blacklisting)
+- `POST /api/v1/auth/register` - Self-registration for new users
 - `POST /api/v1/register` - Create new users (admin only)
 - `GET /api/v1/users` - List all users (admin only)
 - `PUT /api/v1/users/<id>` - Update user (admin only)
 - `GET /api/v1/hello` - Protected hello world endpoint
 - `GET /api/v1/me` - Get current user info
+- `GET /api/v1/auth/oauth/<provider>/authorize` - OAuth authorization
+- `GET /api/v1/auth/oauth/<provider>/callback` - OAuth callback handling
+- `GET /api/v1/auth/oauth/providers` - List available OAuth providers
 
 ### Frontend Features
 - User login/logout with session management
+- **OAuth login support (Google, GitHub)**
+- **User self-registration**
 - Admin dashboard for user management
 - Hello world page demonstrating API integration
 - Responsive Bootstrap UI
@@ -70,6 +76,17 @@ The project includes a Makefile for easy management:
 4. **Default admin credentials:**
    - Username: `admin`
    - Password: `admin123`
+
+## OAuth Setup
+
+The application supports OAuth authentication with Google and GitHub. To enable OAuth:
+
+1. **Set up OAuth applications** in Google Cloud Console and GitHub Developer Settings
+2. **Configure environment variables** with your OAuth client IDs and secrets
+3. **Run the OAuth database migration** to create required tables
+4. **Restart the application** to load OAuth configuration
+
+For detailed setup instructions, see [OAUTH_SETUP.md](OAUTH_SETUP.md).
 
 ## Service Details
 
@@ -145,6 +162,10 @@ curl -X POST http://localhost:8080/api/v1/register \
 - `REDIS_URL`: Redis connection string
 - `JWT_SECRET_KEY`: Secret key for JWT signing
 - `BACKEND_URL`: Backend API URL (for frontend)
+- `GOOGLE_CLIENT_ID`: Google OAuth client ID
+- `GOOGLE_CLIENT_SECRET`: Google OAuth client secret
+- `GITHUB_CLIENT_ID`: GitHub OAuth client ID
+- `GITHUB_CLIENT_SECRET`: GitHub OAuth client secret
 
 ### Adding New Features
 1. Backend: Add routes in `backend/app.py`
