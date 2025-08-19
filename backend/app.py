@@ -86,7 +86,7 @@ def login():
     user = User.query.filter_by(username=data['username']).first()
     
     if user and user.check_password(data['password']) and user.is_active:
-        access_token = create_access_token(identity=user.id)
+        access_token = create_access_token(identity=user.username)
         
         return jsonify({
             'access_token': access_token,
@@ -110,8 +110,8 @@ def logout():
 @app.route('/api/v1/register', methods=['POST'])
 @jwt_required()
 def register_user():
-    current_user_id = get_jwt_identity()
-    current_user = User.query.get(current_user_id)
+    current_username = get_jwt_identity()
+    current_user = User.query.filter_by(username=current_username).first()
     
     if not current_user or not current_user.is_admin:
         return jsonify({'error': 'Admin privileges required'}), 403
@@ -153,12 +153,12 @@ def register_user():
 @jwt_required()
 def get_users():
     try:
-        current_user_id = get_jwt_identity()
-        print(f"Users endpoint: Called by user ID: {current_user_id}")
-        current_user = User.query.get(current_user_id)
+        current_username = get_jwt_identity()
+        print(f"Users endpoint: Called by user: {current_username}")
+        current_user = User.query.filter_by(username=current_username).first()
         
         if not current_user:
-            print(f"Users endpoint: User not found for ID: {current_user_id}")
+            print(f"Users endpoint: User not found for username: {current_username}")
             return jsonify({'error': 'User not found'}), 404
         
         if not current_user.is_admin:
@@ -183,8 +183,8 @@ def get_users():
 @app.route('/api/v1/users/<int:user_id>', methods=['PUT'])
 @jwt_required()
 def update_user(user_id):
-    current_user_id = get_jwt_identity()
-    current_user = User.query.get(current_user_id)
+    current_username = get_jwt_identity()
+    current_user = User.query.filter_by(username=current_username).first()
     
     if not current_user or not current_user.is_admin:
         return jsonify({'error': 'Admin privileges required'}), 403
@@ -231,8 +231,8 @@ def test():
 @jwt_required()
 def hello():
     try:
-        current_user_id = get_jwt_identity()
-        print(f"Hello endpoint called by user ID: {current_user_id}")
+        current_username = get_jwt_identity()
+        print(f"Hello endpoint called by user: {current_username}")
         return jsonify({'message': 'hello world'}), 200
     except Exception as e:
         print(f"Error in hello endpoint: {e}")
@@ -241,8 +241,8 @@ def hello():
 @app.route('/api/v1/me', methods=['GET'])
 @jwt_required()
 def get_current_user():
-    current_user_id = get_jwt_identity()
-    user = User.query.get(current_user_id)
+    current_username = get_jwt_identity()
+    user = User.query.filter_by(username=current_username).first()
     
     if not user:
         return jsonify({'error': 'User not found'}), 404
