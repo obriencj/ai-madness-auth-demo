@@ -47,7 +47,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     environment:
-      - BACKEND_URL=http://nginx
+      - BACKEND_URL=http://backend:5000
     depends_on:
       - backend
 

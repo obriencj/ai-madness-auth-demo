@@ -6,7 +6,7 @@ from functools import wraps
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-change-in-production')
 
-BACKEND_URL = os.getenv('BACKEND_URL', 'http://localhost/api/v1')
+BACKEND_URL = os.getenv('BACKEND_URL', 'http://localhost:5000')
 
 def login_required(f):
     @wraps(f)
@@ -40,7 +40,7 @@ def login():
         password = request.form.get('password')
         
         try:
-            response = requests.post(f'{BACKEND_URL}/auth/login', 
+            response = requests.post(f'{BACKEND_URL}/api/v1/auth/login', 
                                    json={'username': username, 'password': password})
             
             if response.status_code == 200:
@@ -62,7 +62,7 @@ def logout():
     if 'access_token' in session:
         try:
             headers = {'Authorization': f'Bearer {session["access_token"]}'}
-            requests.post(f'{BACKEND_URL}/auth/logout', headers=headers)
+            requests.post(f'{BACKEND_URL}/api/v1/auth/logout', headers=headers)
         except requests.RequestException:
             pass
     
@@ -80,7 +80,7 @@ def dashboard():
 def admin():
     try:
         headers = {'Authorization': f'Bearer {session["access_token"]}'}
-        response = requests.get(f'{BACKEND_URL}/users', headers=headers)
+        response = requests.get(f'{BACKEND_URL}/api/v1/users', headers=headers)
         
         if response.status_code == 200:
             users = response.json()['users']
@@ -98,7 +98,7 @@ def admin():
 def hello():
     try:
         headers = {'Authorization': f'Bearer {session["access_token"]}'}
-        response = requests.get(f'{BACKEND_URL}/hello', headers=headers)
+        response = requests.get(f'{BACKEND_URL}/api/v1/hello', headers=headers)
         
         if response.status_code == 200:
             message = response.json()['message']
@@ -121,7 +121,7 @@ def create_user():
     
     try:
         headers = {'Authorization': f'Bearer {session["access_token"]}'}
-        response = requests.post(f'{BACKEND_URL}/register', 
+        response = requests.post(f'{BACKEND_URL}/api/v1/register', 
                                json=data, headers=headers)
         
         if response.status_code == 201:
@@ -149,7 +149,7 @@ def update_user(user_id):
     
     try:
         headers = {'Authorization': f'Bearer {session["access_token"]}'}
-        response = requests.put(f'{BACKEND_URL}/users/{user_id}', 
+        response = requests.put(f'{BACKEND_URL}/api/v1/users/{user_id}', 
                               json=data, headers=headers)
         
         if response.status_code == 200:
