@@ -132,11 +132,38 @@
                                 <i class="fas fa-link fa-3x text-muted mb-3"></i>
                                 <p class="text-muted">No OAuth accounts connected</p>
                                 <p class="small text-muted">
-                                    You can connect OAuth providers from the login or registration pages
+                                    {% if available_oauth_providers %}
+                                        You can link OAuth providers below, or connect them from the login or registration pages
+                                    {% else %}
+                                        You can connect OAuth providers from the login or registration pages
+                                    {% endif %}
                                 </p>
                             </div>
                         {% endif %}
                     </div>
+                    
+                    <!-- Link New OAuth Accounts -->
+                    {% if available_oauth_providers %}
+                    <div class="mb-4">
+                        <h5 class="card-title">
+                            <i class="fas fa-plus-circle me-2"></i>
+                            Link Additional OAuth Accounts
+                        </h5>
+                        <p class="text-muted small mb-3">
+                            Connect additional OAuth providers to your account for easier login
+                        </p>
+                        <div class="d-grid gap-2">
+                            {% for provider in available_oauth_providers %}
+                            <a href="{{ url_for('link_oauth_account', provider=provider.name) }}" 
+                               class="btn btn-outline-primary"
+                               style="border-color: {{ provider.color }}; color: {{ provider.color }};">
+                                <i class="{{ provider.icon }} me-2"></i>
+                                Link {{ provider.display_name }}
+                            </a>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
                     
                     <!-- Authentication Methods Summary -->
                     <div class="mb-4">

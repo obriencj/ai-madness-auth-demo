@@ -536,6 +536,66 @@ def oauth_callback(provider):
     }), 200
 
 
+@app.route('/api/v1/auth/oauth/<provider>/link', methods=['GET'])
+@jwt_required()
+def oauth_link(provider):
+    """Handle OAuth linking for existing users"""
+    code = request.args.get('code')
+    error = request.args.get('error')
+    
+    if error:
+        return jsonify({'error': f'OAuth error: {error}'}), 400
+    
+    if not code:
+        return jsonify({'error': 'Missing authorization code'}), 400
+    
+    # Get current user from JWT
+    current_username = get_jwt_identity()
+    current_user = User.query.filter_by(username=current_username).first()
+    
+    if not current_user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    # Get redirect URI from query parameter
+    redirect_uri = request.args.get('redirect_uri')
+    if not redirect_uri:
+        return jsonify({'error': 'Missing redirect URI'}), 400
+    
+    # Exchange code for token
+    token_data, error_msg = exchange_code_for_token(provider, code, redirect_uri)
+    if error_msg:
+        return jsonify({'error': error_msg}), 400
+    
+    # Get user information from provider
+    user_info, error_msg = get_user_info(provider, token_data['access_token'])
+    if error_msg:
+        return jsonify({'error': error_msg}), 400
+    
+    # Check if this OAuth account is already linked to another user
+    provider_model = OAuthProvider.query.filter_by(name=provider).first()
+    if provider_model:
+        existing_oauth_account = OAuthAccount.query.filter_by(
+            provider_id=provider_model.id,
+            provider_user_id=str(user_info.get('id', user_info.get('sub', '')))
+        ).first()
+        
+        if existing_oauth_account and existing_oauth_account.user_id != current_user.id:
+            return jsonify({'error': 'This OAuth account is already linked to another user'}), 400
+    
+    # Store OAuth account information for current user
+    _store_oauth_account(current_user.id, provider, user_info, token_data)
+    
+    return jsonify({
+        'message': f'Successfully linked {provider} to your account',
+        'user': {
+            'id': current_user.id,
+            'username': current_user.username,
+            'email': current_user.email,
+            'is_admin': current_user.is_admin
+        }
+    }), 200
+
+
 def _find_or_create_oauth_user(provider, user_info, token_data):
     """Find existing user or create new one from OAuth data"""
     # Try to find existing OAuth account

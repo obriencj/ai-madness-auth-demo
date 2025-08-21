@@ -523,6 +523,8 @@ def account():
     """User account management page"""
     try:
         headers = {'Authorization': f'Bearer {session["access_token"]}'}
+        
+        # Get user account information
         response = requests.get(
             f'{BACKEND_URL}/api/v1/auth/account',
             headers=headers
@@ -530,7 +532,20 @@ def account():
         
         if response.status_code == 200:
             account_data = response.json()
-            return render_template('account.html', account=account_data['user'])
+            
+            # Get available OAuth providers for linking
+            oauth_response = requests.get(f'{BACKEND_URL}/api/v1/auth/oauth/providers')
+            if oauth_response.status_code == 200:
+                available_providers = oauth_response.json()['providers']
+                # Filter out providers that are already connected
+                connected_providers = {acc['provider'] for acc in account_data['user']['oauth_accounts']}
+                available_providers = [p for p in available_providers if p['name'] not in connected_providers]
+            else:
+                available_providers = []
+            
+            return render_template('account.html', 
+                                account=account_data['user'],
+                                available_oauth_providers=available_providers)
         else:
             flash('Failed to load account information', 'error')
             return redirect(url_for('dashboard'))
@@ -587,6 +602,90 @@ def remove_oauth_account(oauth_account_id):
         else:
             error_data = response.json()
             flash(f'Error: {error_data.get("error", "Unknown error")}', 'error')
+    except requests.RequestException:
+        flash('Connection error', 'error')
+    
+    return redirect(url_for('account'))
+
+
+@app.route('/account/oauth/link/<provider>')
+@login_required
+def link_oauth_account(provider):
+    """Initiate OAuth account linking for logged-in user"""
+    try:
+        # Check if provider exists and is active
+        oauth_response = requests.get(f'{BACKEND_URL}/api/v1/auth/oauth/providers')
+        if oauth_response.status_code == 200:
+            providers = oauth_response.json()['providers']
+            provider_names = [p['name'] for p in providers]
+            if provider not in provider_names:
+                flash('OAuth provider not available', 'error')
+                return redirect(url_for('account'))
+        else:
+            flash('Failed to load OAuth providers', 'error')
+            return redirect(url_for('account'))
+        
+        # Check if user already has this provider connected
+        headers = {'Authorization': f'Bearer {session["access_token"]}'}
+        account_response = requests.get(f'{BACKEND_URL}/api/v1/auth/account', headers=headers)
+        if account_response.status_code == 200:
+            account_data = account_response.json()
+            connected_providers = {acc['provider'] for acc in account_data['user']['oauth_accounts']}
+            if provider in connected_providers:
+                flash(f'You already have {provider.title()} connected to your account', 'info')
+                return redirect(url_for('account'))
+        
+        # Build redirect URI for OAuth linking callback
+        redirect_uri = url_for('link_oauth_callback', provider=provider, _external=True)
+        
+        # Initiate OAuth linking
+        response = requests.get(
+            f'{BACKEND_URL}/api/v1/auth/oauth/{provider}/authorize',
+            params={'redirect_uri': redirect_uri}
+        )
+        
+        if response.status_code == 200:
+            auth_data = response.json()
+            return redirect(auth_data['authorization_url'])
+        else:
+            flash('Failed to initiate OAuth linking', 'error')
+            return redirect(url_for('account'))
+    except requests.RequestException:
+        flash('Connection error', 'error')
+        return redirect(url_for('account'))
+
+
+@app.route('/account/oauth/link/<provider>/callback')
+@login_required
+def link_oauth_callback(provider):
+    """Handle OAuth linking callback"""
+    code = request.args.get('code')
+    error = request.args.get('error')
+    
+    if error:
+        flash(f'OAuth linking error: {error}', 'error')
+        return redirect(url_for('account'))
+    
+    if not code:
+        flash('Missing authorization code', 'error')
+        return redirect(url_for('account'))
+    
+    # Build redirect URI for OAuth linking callback
+    redirect_uri = url_for('link_oauth_callback', provider=provider, _external=True)
+    
+    try:
+        headers = {'Authorization': f'Bearer {session["access_token"]}'}
+        response = requests.get(
+            f'{BACKEND_URL}/api/v1/auth/oauth/{provider}/link',
+            params={'code': code, 'redirect_uri': redirect_uri},
+            headers=headers
+        )
+        
+        if response.status_code == 200:
+            flash(f'Successfully linked {provider.title()} to your account!', 'success')
+        else:
+            error_data = response.json()
+            flash(f'OAuth linking error: {error_data.get("error", "Unknown error")}', 'error')
     except requests.RequestException:
         flash('Connection error', 'error')
     
