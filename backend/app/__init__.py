@@ -5,17 +5,17 @@ from flask_cors import CORS
 from flask_oauthlib.client import OAuth
 
 # Import models and database instances
-from model import db, User, OAuthProvider, OAuthAccount
+from .model import db, User, OAuthProvider, OAuthAccount
 
 # Import JWT functionality
-from jwt import jwt, redis_client, configure_jwt
-from flask_jwt_extended import (
+from .jwt import (
+    redis_client, configure_jwt,
     jwt_required, create_access_token,
     get_jwt_identity, get_jwt
 )
 
 # Import OAuth functionality
-from oauth import (
+from .oauth import (
     handle_oauth_authorize, handle_oauth_callback, 
     handle_oauth_link, get_oauth_providers_list
 )
@@ -34,17 +34,6 @@ db.init_app(app)
 configure_jwt(app)  # Configure JWT settings
 CORS(app)
 oauth = OAuth(app)
-
-
-
-
-
-
-
-
-
-
-
 
 # Routes
 @app.route('/api/v1/auth/login', methods=['POST'])

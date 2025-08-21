@@ -12,7 +12,7 @@ This module handles OAuth authentication flow, including:
 import requests
 from flask import jsonify, session, request
 from flask_jwt_extended import create_access_token
-from model import db, User, OAuthProvider, OAuthAccount
+from .model import db, User, OAuthProvider, OAuthAccount
 
 
 def get_oauth_provider_config(provider_name):

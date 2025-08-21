@@ -36,7 +36,8 @@ CREATE INDEX IF NOT EXISTS idx_oauth_account_provider_user_id ON oauth_account(p
 
 -- Insert default OAuth providers (Google and GitHub)
 -- Note: These are placeholder values - you'll need to replace with actual credentials
-INSERT INTO oauth_provider (name, client_id, client_secret, authorize_url, token_url, userinfo_url, scope) VALUES
+-- Providers are disabled by default for security - enable only after configuring real credentials
+INSERT INTO oauth_provider (name, client_id, client_secret, authorize_url, token_url, userinfo_url, scope, is_active) VALUES
 (
     'google',
     'your-google-client-id',
@@ -44,7 +45,8 @@ INSERT INTO oauth_provider (name, client_id, client_secret, authorize_url, token
     'https://accounts.google.com/o/oauth2/v2/auth',
     'https://oauth2.googleapis.com/token',
     'https://www.googleapis.com/oauth2/v2/userinfo',
-    'openid email profile'
+    'openid email profile',
+    FALSE
 ),
 (
     'github',
@@ -53,5 +55,6 @@ INSERT INTO oauth_provider (name, client_id, client_secret, authorize_url, token
     'https://github.com/login/oauth/authorize',
     'https://github.com/login/oauth/access_token',
     'https://api.github.com/user',
-    'read:user user:email'
+    'read:user user:email',
+    FALSE
 ) ON CONFLICT (name) DO NOTHING;

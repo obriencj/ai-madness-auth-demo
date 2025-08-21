@@ -9,7 +9,11 @@ import os
 import redis
 from datetime import timedelta
 from flask import jsonify
-from flask_jwt_extended import JWTManager
+from flask_jwt_extended import (
+    JWTManager, jwt_required, create_access_token,
+    get_jwt_identity, get_jwt
+)
+
 
 # Initialize JWT manager (will be configured in app.py)
 jwt = JWTManager()

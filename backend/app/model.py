@@ -6,13 +6,9 @@ This module contains all SQLAlchemy model definitions and database-related funct
 
 import bcrypt
 from flask_sqlalchemy import SQLAlchemy
-from flask_jwt_extended import JWTManager
 
 # Initialize SQLAlchemy instance (will be configured in app.py)
 db = SQLAlchemy()
-
-# Initialize JWT instance (will be configured in app.py)
-jwt = JWTManager()
 
 
 class User(db.Model):
