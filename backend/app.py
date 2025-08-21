@@ -632,9 +632,24 @@ def get_oauth_providers():
     return jsonify({
         'providers': [{
             'name': provider.name,
-            'display_name': provider.name.title()
+            'display_name': provider.name.title(),
+            'icon': f'fab fa-{provider.name}',
+            'color': _get_provider_color(provider.name)
         } for provider in providers]
     }), 200
+
+
+def _get_provider_color(provider_name):
+    """Get display color for OAuth provider"""
+    colors = {
+        'google': '#4285f4',
+        'github': '#333',
+        'facebook': '#1877f2',
+        'twitter': '#1da1f2',
+        'linkedin': '#0077b5',
+        'microsoft': '#00a4ef'
+    }
+    return colors.get(provider_name.lower(), '#6c757d')
 
 
 @app.route('/api/v1/auth/oauth/connect/<provider>', methods=['POST'])

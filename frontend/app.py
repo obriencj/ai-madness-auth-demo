@@ -79,10 +79,15 @@ def login():
         response = requests.get(f'{BACKEND_URL}/api/v1/auth/oauth/providers')
         if response.status_code == 200:
             oauth_providers = response.json()['providers']
+            # Filter to only show active providers (backend should already do this, but double-check)
+            oauth_providers = [p for p in oauth_providers if p.get('name')]
+            print(f"Login: Loaded {len(oauth_providers)} active OAuth providers: {[p['name'] for p in oauth_providers]}")
         else:
             oauth_providers = []
-    except requests.RequestException:
+            print(f"Login: Failed to load OAuth providers, status: {response.status_code}")
+    except requests.RequestException as e:
         oauth_providers = []
+        print(f"Login: Connection error loading OAuth providers: {e}")
     
     return render_template('login.html', oauth_providers=oauth_providers)
 
@@ -499,10 +504,15 @@ def register():
         response = requests.get(f'{BACKEND_URL}/api/v1/auth/oauth/providers')
         if response.status_code == 200:
             oauth_providers = response.json()['providers']
+            # Filter to only show active providers (backend should already do this, but double-check)
+            oauth_providers = [p for p in oauth_providers if p.get('name')]
+            print(f"Register: Loaded {len(oauth_providers)} active OAuth providers: {[p['name'] for p in oauth_providers]}")
         else:
             oauth_providers = []
-    except requests.RequestException:
+            print(f"Register: Failed to load OAuth providers, status: {response.status_code}")
+    except requests.RequestException as e:
         oauth_providers = []
+        print(f"Register: Connection error loading OAuth providers: {e}")
     
     return render_template('register.html', oauth_providers=oauth_providers)
 
