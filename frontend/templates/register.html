@@ -15,12 +15,11 @@
                     <div class="mb-4">
                         <p class="text-center text-muted">Or sign up with:</p>
                         <div class="d-grid gap-2">
-                            {% for provider, config in oauth_providers.items() %}
-                            <a href="{{ url_for('oauth_login', provider=provider) }}" 
-                               class="btn btn-outline-dark"
-                               style="border-color: {{ config.color }}; color: {{ config.color }};">
-                                <i class="{{ config.icon }} me-2"></i>
-                                Continue with {{ config.name }}
+                            {% for provider in oauth_providers %}
+                            <a href="{{ url_for('oauth_login', provider=provider.name) }}" 
+                               class="btn btn-outline-dark">
+                                <i class="fab fa-{{ provider.name }} me-2"></i>
+                                Continue with {{ provider.name|title }}
                             </a>
                             {% endfor %}
                         </div>

@@ -8,8 +8,8 @@ app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-change-in-production')
 
 BACKEND_URL = os.getenv('BACKEND_URL', 'http://localhost:5000')
 
-# OAuth Configuration
-OAUTH_PROVIDERS = {
+# OAuth Provider Display Configuration
+OAUTH_PROVIDER_DISPLAY = {
     'google': {
         'name': 'Google',
         'color': '#4285f4',
@@ -74,7 +74,17 @@ def login():
         except requests.RequestException:
             flash('Connection error', 'error')
     
-    return render_template('login.html', oauth_providers=OAUTH_PROVIDERS)
+    # Get OAuth providers from backend
+    try:
+        response = requests.get(f'{BACKEND_URL}/api/v1/auth/oauth/providers')
+        if response.status_code == 200:
+            oauth_providers = response.json()['providers']
+        else:
+            oauth_providers = []
+    except requests.RequestException:
+        oauth_providers = []
+    
+    return render_template('login.html', oauth_providers=oauth_providers)
 
 @app.route('/logout')
 def logout():
@@ -268,6 +278,7 @@ def create_oauth_provider():
         'authorize_url': request.form.get('authorize_url'),
         'token_url': request.form.get('token_url'),
         'userinfo_url': request.form.get('userinfo_url'),
+        'scope': request.form.get('scope'),
         'is_active': request.form.get('is_active') == 'on'
     }
     
@@ -299,6 +310,7 @@ def update_oauth_provider(provider_id):
         'authorize_url': request.form.get('authorize_url'),
         'token_url': request.form.get('token_url'),
         'userinfo_url': request.form.get('userinfo_url'),
+        'scope': request.form.get('scope'),
         'is_active': request.form.get('is_active') == 'on'
     }
     
@@ -351,8 +363,20 @@ def delete_oauth_provider(provider_id):
 @app.route('/oauth/<provider>/login')
 def oauth_login(provider):
     """Initiate OAuth login flow"""
-    if provider not in OAUTH_PROVIDERS:
-        flash('Unsupported OAuth provider', 'error')
+    # Check if provider exists and is active
+    try:
+        response = requests.get(f'{BACKEND_URL}/api/v1/auth/oauth/providers')
+        if response.status_code == 200:
+            providers = response.json()['providers']
+            provider_names = [p['name'] for p in providers]
+            if provider not in provider_names:
+                flash('Unsupported OAuth provider', 'error')
+                return redirect(url_for('login'))
+        else:
+            flash('Failed to load OAuth providers', 'error')
+            return redirect(url_for('login'))
+    except requests.RequestException:
+        flash('Connection error', 'error')
         return redirect(url_for('login'))
     
     # Build redirect URI for OAuth callback
@@ -378,8 +402,20 @@ def oauth_login(provider):
 @app.route('/oauth/<provider>/callback')
 def oauth_callback(provider):
     """Handle OAuth callback"""
-    if provider not in OAUTH_PROVIDERS:
-        flash('Unsupported OAuth provider', 'error')
+    # Check if provider exists and is active
+    try:
+        response = requests.get(f'{BACKEND_URL}/api/v1/auth/oauth/providers')
+        if response.status_code == 200:
+            providers = response.json()['providers']
+            provider_names = [p['name'] for p in providers]
+            if provider not in provider_names:
+                flash('Unsupported OAuth provider', 'error')
+                return redirect(url_for('login'))
+        else:
+            flash('Failed to load OAuth providers', 'error')
+            return redirect(url_for('login'))
+    except requests.RequestException:
+        flash('Connection error', 'error')
         return redirect(url_for('login'))
     
     code = request.args.get('code')
@@ -407,7 +443,7 @@ def oauth_callback(provider):
             session['access_token'] = data['access_token']
             session['user'] = data['user']
             session['is_admin'] = data['user']['is_admin']
-            flash(f'Login successful with {OAUTH_PROVIDERS[provider]["name"]}!', 'success')
+            flash(f'Login successful with {provider.title()}!', 'success')
             return redirect(url_for('dashboard'))
         else:
             error_data = response.json()
@@ -458,7 +494,17 @@ def register():
         except requests.RequestException:
             flash('Connection error', 'error')
     
-    return render_template('register.html', oauth_providers=OAUTH_PROVIDERS)
+    # Get OAuth providers from backend
+    try:
+        response = requests.get(f'{BACKEND_URL}/api/v1/auth/oauth/providers')
+        if response.status_code == 200:
+            oauth_providers = response.json()['providers']
+        else:
+            oauth_providers = []
+    except requests.RequestException:
+        oauth_providers = []
+    
+    return render_template('register.html', oauth_providers=oauth_providers)
 
 
 @app.route('/account')

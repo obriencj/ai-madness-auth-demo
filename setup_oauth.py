@@ -27,6 +27,35 @@ def update_oauth_provider(conn, provider_name, client_id, client_secret):
     cursor = conn.cursor()
     
     try:
+        # First check if the scope field exists, if not, add it
+        cursor.execute("""
+            SELECT column_name FROM information_schema.columns 
+            WHERE table_name = 'oauth_provider' AND column_name = 'scope'
+        """)
+        
+        if not cursor.fetchone():
+            print(f"Adding scope column to oauth_provider table...")
+            cursor.execute("ALTER TABLE oauth_provider ADD COLUMN scope VARCHAR(500)")
+            
+            # Set default scope values for existing providers
+            if provider_name == 'google':
+                cursor.execute("""
+                    UPDATE oauth_provider 
+                    SET scope = 'openid email profile' 
+                    WHERE name = 'google'
+                """)
+            elif provider_name == 'github':
+                cursor.execute("""
+                    UPDATE oauth_provider 
+                    SET scope = 'read:user user:email' 
+                    WHERE name = 'github'
+                """)
+            
+            # Make scope column NOT NULL
+            cursor.execute("ALTER TABLE oauth_provider ALTER COLUMN scope SET NOT NULL")
+            print(f"✅ Added scope column to oauth_provider table")
+        
+        # Update the provider credentials
         cursor.execute("""
             UPDATE oauth_provider 
             SET client_id = %s, client_secret = %s 

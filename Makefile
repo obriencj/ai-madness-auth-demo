@@ -17,6 +17,7 @@ help:
 	@echo "  clean   - Stop and remove all containers, networks, and volumes"
 	@echo "  oauth-setup - Configure OAuth providers in database"
 	@echo "  oauth-migrate - Run OAuth database migration"
+	@echo "  oauth-scope-migrate - Run OAuth scope field migration"
 	@echo ""
 	@echo "Using: $(COMPOSE_CMD)"
 
@@ -89,3 +90,11 @@ oauth-migrate:
 	@echo ""
 	PGPASSWORD=auth_password psql -h localhost -U auth_user -d auth_demo -f init/02-oauth-support.sql
 	@echo "OAuth migration completed!"
+
+# Run OAuth scope field migration
+oauth-scope-migrate:
+	@echo "Running OAuth scope field migration..."
+	@echo "Make sure the database is running (make start)"
+	@echo ""
+	python3 migrate_scope.py
+	@echo "OAuth scope migration completed!"

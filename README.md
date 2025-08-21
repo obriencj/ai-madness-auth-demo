@@ -93,6 +93,21 @@ The application supports OAuth authentication with Google and GitHub. To enable 
 
 For detailed setup instructions, see [OAUTH_SETUP.md](OAUTH_SETUP.md).
 
+### OAuth Provider Management
+
+All OAuth provider configuration is now stored in the database, including:
+- Client ID and Secret
+- Authorization, Token, and User Info URLs
+- **Scope values** (newly added)
+- Active status
+
+**Migration Note**: If you have an existing database, run the scope migration script:
+```bash
+python migrate_scope.py
+```
+
+This will add the scope field to existing oauth_provider tables and set appropriate default values.
+
 ## Service Details
 
 ### Nginx Proxy Service (Port 8080)

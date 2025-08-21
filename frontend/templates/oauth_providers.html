@@ -52,6 +52,13 @@
                             <small class="text-muted">User information endpoint</small>
                         </div>
                         
+                        <div class="mb-3">
+                            <label for="scope" class="form-label">Scope</label>
+                            <input type="text" class="form-control" id="scope" name="scope" 
+                                   placeholder="e.g., openid email profile" required>
+                            <small class="text-muted">OAuth scope values (space-separated)</small>
+                        </div>
+                        
                         <div class="mb-3 form-check">
                             <input type="checkbox" class="form-check-input" id="is_active" name="is_active" checked>
                             <label class="form-check-label" for="is_active">Active</label>
@@ -113,6 +120,7 @@
                                                 <div><strong>Auth:</strong> <span class="text-truncate d-inline-block" style="max-width: 150px;" title="{{ provider.authorize_url }}">{{ provider.authorize_url }}</span></div>
                                                 <div><strong>Token:</strong> <span class="text-truncate d-inline-block" style="max-width: 150px;" title="{{ provider.token_url }}">{{ provider.token_url }}</span></div>
                                                 <div><strong>UserInfo:</strong> <span class="text-truncate d-inline-block" style="max-width: 150px;" title="{{ provider.userinfo_url }}">{{ provider.userinfo_url }}</span></div>
+                                                <div><strong>Scope:</strong> <code class="text-truncate d-inline-block" style="max-width: 150px;" title="{{ provider.scope }}">{{ provider.scope }}</code></div>
                                             </div>
                                         </td>
                                         <td>
@@ -211,6 +219,13 @@
                                        name="userinfo_url" value="{{ provider.userinfo_url }}" required>
                             </div>
                             
+                            <div class="mb-3">
+                                <label for="edit_scope{{ provider.id }}" class="form-label">Scope</label>
+                                <input type="text" class="form-control" id="edit_scope{{ provider.id }}" 
+                                       name="scope" value="{{ provider.scope }}" required>
+                                <small class="text-muted">OAuth scope values (space-separated)</small>
+                            </div>
+                            
                             <div class="mb-3 form-check">
                                 <input type="checkbox" class="form-check-input" id="edit_is_active{{ provider.id }}" 
                                        name="is_active" {{ 'checked' if provider.is_active }}>
@@ -249,6 +264,7 @@
                                     <li><strong>Auth URL:</strong> https://accounts.google.com/o/oauth2/v2/auth</li>
                                     <li><strong>Token URL:</strong> https://oauth2.googleapis.com/token</li>
                                     <li><strong>UserInfo URL:</strong> https://www.googleapis.com/oauth2/v2/userinfo</li>
+                                    <li><strong>Scope:</strong> openid email profile</li>
                                 </ul>
                             </div>
                         </div>
@@ -263,6 +279,7 @@
                                     <li><strong>Auth URL:</strong> https://github.com/login/oauth/authorize</li>
                                     <li><strong>Token URL:</strong> https://github.com/login/oauth/access_token</li>
                                     <li><strong>UserInfo URL:</strong> https://api.github.com/user</li>
+                                    <li><strong>Scope:</strong> read:user user:email</li>
                                 </ul>
                             </div>
                         </div>
@@ -286,13 +303,15 @@ function fillProviderTemplate(providerName) {
             name: 'google',
             authorize_url: 'https://accounts.google.com/o/oauth2/v2/auth',
             token_url: 'https://oauth2.googleapis.com/token',
-            userinfo_url: 'https://www.googleapis.com/oauth2/v2/userinfo'
+            userinfo_url: 'https://www.googleapis.com/oauth2/v2/userinfo',
+            scope: 'openid email profile'
         },
         'github': {
             name: 'github',
             authorize_url: 'https://github.com/login/oauth/authorize',
             token_url: 'https://github.com/login/oauth/access_token',
-            userinfo_url: 'https://api.github.com/user'
+            userinfo_url: 'https://api.github.com/user',
+            scope: 'read:user user:email'
         }
     };
     
@@ -302,6 +321,7 @@ function fillProviderTemplate(providerName) {
         document.getElementById('authorize_url').value = template.authorize_url;
         document.getElementById('token_url').value = template.token_url;
         document.getElementById('userinfo_url').value = template.userinfo_url;
+        document.getElementById('scope').value = template.scope;
     }
 }
 

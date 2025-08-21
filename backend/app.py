@@ -30,26 +30,6 @@ app.config['JWT_TOKEN_LOCATION'] = ['headers']
 app.config['JWT_HEADER_NAME'] = 'Authorization'
 app.config['JWT_HEADER_TYPE'] = 'Bearer'
 
-# OAuth Configuration
-app.config['OAUTH_PROVIDERS'] = {
-    'google': {
-        'client_id': os.getenv('GOOGLE_CLIENT_ID', ''),
-        'client_secret': os.getenv('GOOGLE_CLIENT_SECRET', ''),
-        'authorize_url': 'https://accounts.google.com/o/oauth2/v2/auth',
-        'token_url': 'https://oauth2.googleapis.com/token',
-        'userinfo_url': 'https://www.googleapis.com/oauth2/v2/userinfo',
-        'scope': 'openid email profile'
-    },
-    'github': {
-        'client_id': os.getenv('GITHUB_CLIENT_ID', ''),
-        'client_secret': os.getenv('GITHUB_CLIENT_SECRET', ''),
-        'authorize_url': 'https://github.com/login/oauth/authorize',
-        'token_url': 'https://github.com/login/oauth/access_token',
-        'userinfo_url': 'https://api.github.com/user',
-        'scope': 'read:user user:email'
-    }
-}
-
 # Initialize extensions
 db = SQLAlchemy(app)
 jwt = JWTManager(app)
@@ -114,6 +94,7 @@ class OAuthProvider(db.Model):
     authorize_url = db.Column(db.String(500), nullable=False)
     token_url = db.Column(db.String(500), nullable=False)
     userinfo_url = db.Column(db.String(500), nullable=False)
+    scope = db.Column(db.String(255), nullable=False) # Added scope field
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
 
@@ -393,7 +374,8 @@ def get_oauth_provider_config(provider_name):
         'client_secret': provider.client_secret,
         'authorize_url': provider.authorize_url,
         'token_url': provider.token_url,
-        'userinfo_url': provider.userinfo_url
+        'userinfo_url': provider.userinfo_url,
+        'scope': provider.scope
     }
 
 
@@ -493,11 +475,8 @@ def oauth_authorize(provider):
         'client_id': config['client_id'],
         'redirect_uri': redirect_uri,
         'response_type': 'code',
-        'scope': app.config['OAUTH_PROVIDERS'][provider]['scope']
+        'scope': config['scope']
     }
-    
-    if provider == 'github':
-        auth_params['scope'] = 'read:user user:email'
     
     auth_url = f"{config['authorize_url']}?{'&'.join([f'{k}={v}' for k, v in auth_params.items()])}"
     
@@ -868,6 +847,7 @@ def get_oauth_providers_admin():
             'authorize_url': provider.authorize_url,
             'token_url': provider.token_url,
             'userinfo_url': provider.userinfo_url,
+            'scope': provider.scope,
             'is_active': provider.is_active,
             'created_at': provider.created_at.isoformat() if provider.created_at else None
         } for provider in providers]
@@ -887,7 +867,7 @@ def create_oauth_provider():
     data = request.get_json()
     
     # Validate required fields
-    required_fields = ['name', 'client_id', 'client_secret', 'authorize_url', 'token_url', 'userinfo_url']
+    required_fields = ['name', 'client_id', 'client_secret', 'authorize_url', 'token_url', 'userinfo_url', 'scope']
     for field in required_fields:
         if not data.get(field):
             return jsonify({'error': f'Missing required field: {field}'}), 400
@@ -904,6 +884,7 @@ def create_oauth_provider():
         authorize_url=data['authorize_url'],
         token_url=data['token_url'],
         userinfo_url=data['userinfo_url'],
+        scope=data['scope'],
         is_active=data.get('is_active', True)
     )
     
@@ -921,6 +902,7 @@ def create_oauth_provider():
                 'authorize_url': new_provider.authorize_url,
                 'token_url': new_provider.token_url,
                 'userinfo_url': new_provider.userinfo_url,
+                'scope': new_provider.scope,
                 'is_active': new_provider.is_active
             }
         }), 201
@@ -968,6 +950,9 @@ def update_oauth_provider(provider_id):
     if 'userinfo_url' in data:
         provider.userinfo_url = data['userinfo_url']
     
+    if 'scope' in data:
+        provider.scope = data['scope']
+    
     if 'is_active' in data:
         provider.is_active = data['is_active']
     
@@ -984,6 +969,7 @@ def update_oauth_provider(provider_id):
                 'authorize_url': provider.authorize_url,
                 'token_url': provider.token_url,
                 'userinfo_url': provider.userinfo_url,
+                'scope': provider.scope,
                 'is_active': provider.is_active
             }
         }), 200
