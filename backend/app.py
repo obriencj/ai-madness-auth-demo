@@ -1,5 +1,4 @@
 import os
-import redis
 import requests
 from datetime import timedelta
 from flask import Flask, request, jsonify, redirect, url_for, session
@@ -7,9 +6,10 @@ from flask_cors import CORS
 from flask_oauthlib.client import OAuth
 
 # Import models and database instances
-from model import db, jwt, User, OAuthProvider, OAuthAccount
+from model import db, User, OAuthProvider, OAuthAccount
 
 # Import JWT functionality
+from jwt import jwt, redis_client, configure_jwt
 from flask_jwt_extended import (
     jwt_required, create_access_token,
     get_jwt_identity, get_jwt
@@ -23,63 +23,23 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv(
     'postgresql://auth_user:auth_password@localhost:5432/auth_demo'
 )
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['JWT_SECRET_KEY'] = os.getenv(
-    'JWT_SECRET_KEY', 
-    'your-super-secret-jwt-key-change-in-production'
-)
-app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=1)
-app.config['JWT_ALGORITHM'] = 'HS256'
-app.config['JWT_TOKEN_LOCATION'] = ['headers']
-app.config['JWT_HEADER_NAME'] = 'Authorization'
-app.config['JWT_HEADER_TYPE'] = 'Bearer'
 
 # Initialize extensions
 db.init_app(app)
-jwt.init_app(app)
+configure_jwt(app)  # Configure JWT settings
 CORS(app)
 oauth = OAuth(app)
 
 
-# Redis connection
-redis_client = redis.from_url(
-    os.getenv('REDIS_URL', 'redis://localhost:6379')
-)
-
-# JWT token blocklist loader
-@jwt.token_in_blocklist_loader
-def check_if_token_in_blocklist(jwt_header, jwt_payload):
-    """Check if JWT token is in blocklist (Redis)."""
-    try:
-        jti = jwt_payload.get("jti")
-        if not jti:
-            return False
-        token_in_redis = redis_client.get(jti)
-        return token_in_redis is not None
-    except Exception as e:
-        print(f"Error checking token blocklist: {e}")
-        return False
 
 
-# JWT error handlers
-@jwt.expired_token_loader
-def expired_token_callback(jwt_header, jwt_payload):
-    """Handle expired JWT tokens."""
-    print(f"JWT expired token callback: {jwt_payload}")
-    return jsonify({'error': 'Token has expired'}), 401
 
 
-@jwt.invalid_token_loader
-def invalid_token_callback(error):
-    """Handle invalid JWT tokens."""
-    print(f"JWT invalid token callback: {error}")
-    return jsonify({'error': 'Invalid token'}), 401
 
 
-@jwt.unauthorized_loader
-def missing_token_callback(error):
-    """Handle missing JWT tokens."""
-    print(f"JWT missing token callback: {error}")
-    return jsonify({'error': 'Missing authorization token'}), 401
+
+
+
 
 # Routes
 @app.route('/api/v1/auth/login', methods=['POST'])
@@ -110,7 +70,8 @@ def login():
 @jwt_required()
 def logout():
     jti = get_jwt()["jti"]
-    redis_client.setex(jti, timedelta(hours=1), "true")
+    from jwt import blacklist_token
+    blacklist_token(jti, timedelta(hours=1))
     return jsonify({'message': 'Successfully logged out'}), 200
 
 @app.route('/api/v1/register', methods=['POST'])
