@@ -1,16 +1,19 @@
 import os
-import bcrypt
 import redis
 import requests
 from datetime import timedelta
 from flask import Flask, request, jsonify, redirect, url_for, session
-from flask_sqlalchemy import SQLAlchemy
-from flask_jwt_extended import (
-    JWTManager, jwt_required, create_access_token,
-    get_jwt_identity, get_jwt
-)
 from flask_cors import CORS
 from flask_oauthlib.client import OAuth
+
+# Import models and database instances
+from model import db, jwt, User, OAuthProvider, OAuthAccount
+
+# Import JWT functionality
+from flask_jwt_extended import (
+    jwt_required, create_access_token,
+    get_jwt_identity, get_jwt
+)
 
 app = Flask(__name__)
 
@@ -31,29 +34,10 @@ app.config['JWT_HEADER_NAME'] = 'Authorization'
 app.config['JWT_HEADER_TYPE'] = 'Bearer'
 
 # Initialize extensions
-db = SQLAlchemy(app)
-jwt = JWTManager(app)
+db.init_app(app)
+jwt.init_app(app)
 CORS(app)
 oauth = OAuth(app)
-
-
-# JWT error handlers
-@jwt.expired_token_loader
-def expired_token_callback(jwt_header, jwt_payload):
-    print(f"JWT expired token callback: {jwt_payload}")
-    return jsonify({'error': 'Token has expired'}), 401
-
-
-@jwt.invalid_token_loader
-def invalid_token_callback(error):
-    print(f"JWT invalid token callback: {error}")
-    return jsonify({'error': 'Invalid token'}), 401
-
-
-@jwt.unauthorized_loader
-def missing_token_callback(error):
-    print(f"JWT missing token callback: {error}")
-    return jsonify({'error': 'Missing authorization token'}), 401
 
 
 # Redis connection
@@ -61,69 +45,10 @@ redis_client = redis.from_url(
     os.getenv('REDIS_URL', 'redis://localhost:6379')
 )
 
-# User model
-class User(db.Model):
-    __tablename__ = 'user'
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    password_hash = db.Column(db.String(255), nullable=True)  # Made nullable for OAuth users
-    is_admin = db.Column(db.Boolean, default=False)
-    is_active = db.Column(db.Boolean, default=True)
-
-    def set_password(self, password):
-        self.password_hash = bcrypt.hashpw(
-            password.encode('utf-8'), bcrypt.gensalt()
-        ).decode('utf-8')
-
-    def check_password(self, password):
-        if not self.password_hash:
-            return False
-        return bcrypt.checkpw(
-            password.encode('utf-8'), self.password_hash.encode('utf-8')
-        )
-
-
-# OAuth Provider model
-class OAuthProvider(db.Model):
-    __tablename__ = 'oauth_provider'
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(50), unique=True, nullable=False)
-    client_id = db.Column(db.String(255), nullable=False)
-    client_secret = db.Column(db.String(255), nullable=False)
-    authorize_url = db.Column(db.String(500), nullable=False)
-    token_url = db.Column(db.String(500), nullable=False)
-    userinfo_url = db.Column(db.String(500), nullable=False)
-    scope = db.Column(db.String(255), nullable=False) # Added scope field
-    is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
-
-
-# OAuth Account model
-class OAuthAccount(db.Model):
-    __tablename__ = 'oauth_account'
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    provider_id = db.Column(
-        db.Integer, db.ForeignKey('oauth_provider.id'), nullable=False
-    )
-    provider_user_id = db.Column(db.String(255), nullable=False)
-    access_token = db.Column(db.Text)
-    refresh_token = db.Column(db.Text)
-    token_expires_at = db.Column(db.DateTime)
-    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
-    updated_at = db.Column(db.DateTime, default=db.func.current_timestamp())
-
-    user = db.relationship('User', backref='oauth_accounts')
-    provider = db.relationship('OAuthProvider')
-
-    __table_args__ = (
-        db.UniqueConstraint('provider_id', 'provider_user_id'),
-    )
-
-# JWT token blocklist
+# JWT token blocklist loader
 @jwt.token_in_blocklist_loader
 def check_if_token_in_blocklist(jwt_header, jwt_payload):
+    """Check if JWT token is in blocklist (Redis)."""
     try:
         jti = jwt_payload.get("jti")
         if not jti:
@@ -133,6 +58,28 @@ def check_if_token_in_blocklist(jwt_header, jwt_payload):
     except Exception as e:
         print(f"Error checking token blocklist: {e}")
         return False
+
+
+# JWT error handlers
+@jwt.expired_token_loader
+def expired_token_callback(jwt_header, jwt_payload):
+    """Handle expired JWT tokens."""
+    print(f"JWT expired token callback: {jwt_payload}")
+    return jsonify({'error': 'Token has expired'}), 401
+
+
+@jwt.invalid_token_loader
+def invalid_token_callback(error):
+    """Handle invalid JWT tokens."""
+    print(f"JWT invalid token callback: {error}")
+    return jsonify({'error': 'Invalid token'}), 401
+
+
+@jwt.unauthorized_loader
+def missing_token_callback(error):
+    """Handle missing JWT tokens."""
+    print(f"JWT missing token callback: {error}")
+    return jsonify({'error': 'Missing authorization token'}), 401
 
 # Routes
 @app.route('/api/v1/auth/login', methods=['POST'])
