@@ -60,12 +60,29 @@ def create_app():
     # Store auth engine in app context for easy access
     app.auth_engine = auth_engine
     
-    # Add only the /hello endpoint as requested
+    # Add the /hello endpoint as requested
     @app.route('/api/v1/hello', methods=['GET'])
     @auth_engine.require_auth()
     def hello():
         """Protected endpoint requiring authentication."""
         return {'message': 'hello world'}, 200
+    
+    # Add /me endpoint for frontend session validation
+    @app.route('/api/v1/me', methods=['GET'])
+    @auth_engine.require_auth()
+    def get_current_user():
+        """Get current user information for frontend session validation."""
+        try:
+            user = auth_engine.get_current_user()
+            
+            if not user:
+                return {'error': 'User not found'}, 404
+            
+            return {
+                'user': auth_engine.services['user'].serialize_user(user)
+            }, 200
+        except Exception:
+            return {'error': 'Failed to get user info'}, 500
     
     return app
 
