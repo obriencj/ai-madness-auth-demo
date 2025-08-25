@@ -82,6 +82,8 @@ class UserService:
     def __init__(self, user_model, oauth_account_model):
         self.user_model = user_model
         self.oauth_account_model = oauth_account_model
+        # Get the database instance from the user model
+        self.db = user_model.__table__.metadata.bind
     
     def get_user_by_id(self, user_id: Any) -> Optional[Any]:
         """Get user by ID."""
@@ -98,8 +100,8 @@ class UserService:
     def create_user(self, user_data: Dict[str, Any]) -> Any:
         """Create new user."""
         user = self.user_model(**user_data)
-        current_app.db.session.add(user)
-        current_app.db.session.commit()
+        self.db.session.add(user)
+        self.db.session.commit()
         return user
     
     def update_user(self, user_id: Any, user_data: Dict[str, Any]) -> Any:
@@ -112,7 +114,7 @@ class UserService:
             if hasattr(user, key):
                 setattr(user, key, value)
         
-        current_app.db.session.commit()
+        self.db.session.commit()
         return user
     
     def delete_user(self, user_id: Any):
@@ -121,8 +123,8 @@ class UserService:
         if not user:
             raise UserNotFound(f"User with ID {user_id} not found")
         
-        current_app.db.session.delete(user)
-        current_app.db.session.commit()
+        self.db.session.delete(user)
+        self.db.session.commit()
     
     def find_or_create_oauth_user(self, provider: str, user_info: Dict[str, Any]) -> Any:
         """Find existing user or create new one from OAuth data."""
@@ -201,6 +203,8 @@ class SessionService:
     def __init__(self, session_model, redis_client=None):
         self.session_model = session_model
         self.redis_client = redis_client
+        # Get the database instance from the session model
+        self.db = session_model.__table__.metadata.bind
     
     def create_session(self, jti: str, user_id: Any, auth_method: str, 
                       ip_address: Optional[str] = None, 
@@ -218,8 +222,8 @@ class SessionService:
             is_active=True
         )
         
-        current_app.db.session.add(session)
-        current_app.db.session.commit()
+        self.db.session.add(session)
+        self.db.session.commit()
         
         return session
     
@@ -232,7 +236,7 @@ class SessionService:
         session = self.get_session_by_jti(jti)
         if session:
             session.is_active = False
-            current_app.db.session.commit()
+            self.db.session.commit()
             
             # Add to blacklist if Redis is available
             if self.redis_client:
@@ -259,7 +263,7 @@ class SessionService:
             if self.redis_client:
                 self.redis_client.setex(session.jti, 3600, "true")
         
-        current_app.db.session.commit()
+        self.db.session.commit()
         return len(sessions)
 
 
