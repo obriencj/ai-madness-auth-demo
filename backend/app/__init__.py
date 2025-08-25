@@ -1,24 +1,20 @@
 import os
 from datetime import timedelta
-from flask import Flask, request, jsonify, redirect, url_for, session
+from flask import Flask, request, jsonify
 from flask_cors import CORS
-from flask_oauthlib.client import OAuth
 
 # Import models and database instances
 from .model import db, User, OAuthProvider, OAuthAccount
 
 # Import JWT functionality
 from .jwt import (
-    redis_client, configure_jwt,
+    configure_jwt,
     jwt_required, create_access_token,
     get_jwt_identity, get_jwt
 )
 
-# Import OAuth functionality
-from .oauth import (
-    handle_oauth_authorize, handle_oauth_callback,
-    handle_oauth_link, get_oauth_providers_list
-)
+# Import OAuth blueprint
+from .oauth import oauth_bp
 
 
 def create_app():
@@ -35,7 +31,9 @@ def create_app():
     db.init_app(app)
     configure_jwt(app)  # Configure JWT settings
     CORS(app)
-    oauth = OAuth(app)
+
+    # Register blueprints
+    app.register_blueprint(oauth_bp)
 
     return app
 
@@ -276,64 +274,6 @@ def get_current_user():
             'is_admin': user.is_admin
         }
     }), 200
-
-
-# OAuth Routes
-@app.route('/api/v1/auth/oauth/<provider>/authorize', methods=['GET'])
-def oauth_authorize(provider):
-    """Redirect user to OAuth provider for authorization"""
-    redirect_uri = request.args.get('redirect_uri')
-    if not redirect_uri:
-        return jsonify({'error': 'Missing redirect_uri parameter'}), 400
-
-    return handle_oauth_authorize(provider, redirect_uri)
-
-
-@app.route('/api/v1/auth/oauth/<provider>/callback', methods=['GET'])
-def oauth_callback(provider):
-    """Handle OAuth callback from provider"""
-    code = request.args.get('code')
-    error = request.args.get('error')
-
-    return handle_oauth_callback(provider, code, error)
-
-
-@app.route('/api/v1/auth/oauth/<provider>/link', methods=['GET'])
-@jwt_required()
-def oauth_link(provider):
-    """Handle OAuth linking for existing users"""
-    code = request.args.get('code')
-    error = request.args.get('error')
-
-    # Get current user from JWT
-    current_username = get_jwt_identity()
-    current_user = User.query.filter_by(username=current_username).first()
-
-    if not current_user:
-        return jsonify({'error': 'User not found'}), 404
-
-    return handle_oauth_link(provider, code, error, current_user)
-
-
-@app.route('/api/v1/auth/oauth/providers', methods=['GET'])
-def get_oauth_providers():
-    """Get list of available OAuth providers"""
-    return get_oauth_providers_list()
-
-
-@app.route('/api/v1/auth/oauth/connect/<provider>', methods=['POST'])
-@jwt_required()
-def connect_oauth_provider(provider):
-    """Connect OAuth provider to existing user account"""
-    current_username = get_jwt_identity()
-    user = User.query.filter_by(username=current_username).first()
-
-    if not user:
-        return jsonify({'error': 'User not found'}), 404
-
-    # This endpoint would handle connecting additional OAuth providers
-    # For now, we'll return a message indicating it's not implemented
-    return jsonify({'message': 'OAuth provider connection not yet implemented'}), 501
 
 
 # User Account Management Routes

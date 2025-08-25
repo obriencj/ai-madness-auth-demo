@@ -10,8 +10,8 @@ This module handles OAuth authentication flow, including:
 """
 
 import requests
-from flask import jsonify, session, request
-from flask_jwt_extended import create_access_token
+from flask import jsonify, session, request, Blueprint
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from .model import db, User, OAuthProvider, OAuthAccount
 
 
@@ -37,7 +37,7 @@ def exchange_code_for_token(provider_name, code, redirect_uri):
     config = get_oauth_provider_config(provider_name)
     if not config:
         return None, "Provider not found or inactive"
-    
+
     if provider_name == 'google':
         return _exchange_google_token(config, code, redirect_uri)
     elif provider_name == 'github':
@@ -56,7 +56,7 @@ def _exchange_google_token(config, code, redirect_uri):
             'grant_type': 'authorization_code',
             'redirect_uri': redirect_uri
         })
-        
+
         if response.status_code == 200:
             token_data = response.json()
             return token_data, None
@@ -75,7 +75,7 @@ def _exchange_github_token(config, code, redirect_uri):
             'code': code,
             'redirect_uri': redirect_uri
         }, headers={'Accept': 'application/json'})
-        
+
         if response.status_code == 200:
             token_data = response.json()
             return token_data, None
@@ -90,14 +90,14 @@ def get_user_info(provider_name, access_token):
     config = get_oauth_provider_config(provider_name)
     if not config:
         return None, "Provider not found or inactive"
-    
+
     try:
         headers = {'Authorization': f'Bearer {access_token}'}
         if provider_name == 'github':
             headers['Accept'] = 'application/vnd.github.v3+json'
-        
+
         response = requests.get(config['userinfo_url'], headers=headers)
-        
+
         if response.status_code == 200:
             return response.json(), None
         else:
@@ -113,21 +113,21 @@ def _find_or_create_oauth_user(provider, user_info, token_data):
         provider_id=OAuthProvider.query.filter_by(name=provider).first().id,
         provider_user_id=str(user_info.get('id', user_info.get('sub', '')))
     ).first()
-    
+
     if oauth_account:
         return oauth_account.user
-    
+
     # Try to find user by email
     email = user_info.get('email')
     if email:
         user = User.query.filter_by(email=email).first()
         if user:
             return user
-    
+
     # Create new user
     username = _generate_unique_username(user_info)
     email = user_info.get('email', f"{username}@{provider}.oauth")
-    
+
     new_user = User(
         username=username,
         email=email,
@@ -135,7 +135,7 @@ def _find_or_create_oauth_user(provider, user_info, token_data):
         is_admin=False,
         is_active=True
     )
-    
+
     try:
         db.session.add(new_user)
         db.session.commit()
@@ -150,13 +150,13 @@ def _generate_unique_username(user_info):
     """Generate unique username from OAuth user info"""
     base_username = user_info.get('login', user_info.get('name', 'user'))
     base_username = ''.join(c for c in base_username if c.isalnum() or c in '._-')
-    
+
     counter = 1
     username = base_username
     while User.query.filter_by(username=username).first():
         username = f"{base_username}{counter}"
         counter += 1
-    
+
     return username
 
 
@@ -165,13 +165,13 @@ def _store_oauth_account(user_id, provider, user_info, token_data):
     provider_model = OAuthProvider.query.filter_by(name=provider).first()
     if not provider_model:
         return
-    
+
     # Check if OAuth account already exists
     existing_account = OAuthAccount.query.filter_by(
         user_id=user_id,
         provider_id=provider_model.id
     ).first()
-    
+
     if existing_account:
         # Update existing account
         existing_account.access_token = token_data.get('access_token')
@@ -187,7 +187,7 @@ def _store_oauth_account(user_id, provider, user_info, token_data):
             refresh_token=token_data.get('refresh_token')
         )
         db.session.add(new_account)
-    
+
     try:
         db.session.commit()
     except Exception as e:
@@ -213,11 +213,11 @@ def handle_oauth_authorize(provider, redirect_uri):
     config = get_oauth_provider_config(provider)
     if not config:
         return jsonify({'error': 'Provider not found or inactive'}), 404
-    
+
     # Store redirect URI in session for later use
     session['oauth_redirect_uri'] = redirect_uri
     session['oauth_provider'] = provider
-    
+
     # Build authorization URL
     auth_params = {
         'client_id': config['client_id'],
@@ -225,9 +225,9 @@ def handle_oauth_authorize(provider, redirect_uri):
         'response_type': 'code',
         'scope': config['scope']
     }
-    
+
     auth_url = f"{config['authorize_url']}?{'&'.join([f'{k}={v}' for k, v in auth_params.items()])}"
-    
+
     return jsonify({'authorization_url': auth_url}), 200
 
 
@@ -235,40 +235,40 @@ def handle_oauth_callback(provider, code, error):
     """Handle OAuth callback from provider"""
     if error:
         return jsonify({'error': f'OAuth error: {error}'}), 400
-    
+
     if not code:
         return jsonify({'error': 'Missing authorization code'}), 400
-    
+
     # Get stored redirect URI from session
     redirect_uri = session.get('oauth_redirect_uri')
     if not redirect_uri:
         return jsonify({'error': 'Missing redirect URI'}), 400
-    
+
     # Exchange code for token
     token_data, error_msg = exchange_code_for_token(provider, code, redirect_uri)
     if error_msg:
         return jsonify({'error': error_msg}), 400
-    
+
     # Get user information from provider
     user_info, error_msg = get_user_info(provider, token_data['access_token'])
     if error_msg:
         return jsonify({'error': error_msg}), 400
-    
+
     # Find or create user
     user = _find_or_create_oauth_user(provider, user_info, token_data)
     if not user:
         return jsonify({'error': 'Failed to create or find user'}), 500
-    
+
     # Create JWT token
     access_token = create_access_token(identity=user.username)
-    
+
     # Store OAuth account information
     _store_oauth_account(user.id, provider, user_info, token_data)
-    
+
     # Clear session data
     session.pop('oauth_redirect_uri', None)
     session.pop('oauth_provider', None)
-    
+
     return jsonify({
         'access_token': access_token,
         'user': {
@@ -284,28 +284,28 @@ def handle_oauth_link(provider, code, error, current_user):
     """Handle OAuth linking for existing users"""
     if error:
         return jsonify({'error': f'OAuth error: {error}'}), 400
-    
+
     if not code:
         return jsonify({'error': 'Missing authorization code'}), 400
-    
+
     if not current_user:
         return jsonify({'error': 'User not found'}), 404
-    
+
     # Get redirect URI from query parameter
     redirect_uri = request.args.get('redirect_uri')
     if not redirect_uri:
         return jsonify({'error': 'Missing redirect URI'}), 400
-    
+
     # Exchange code for token
     token_data, error_msg = exchange_code_for_token(provider, code, redirect_uri)
     if error_msg:
         return jsonify({'error': error_msg}), 400
-    
+
     # Get user information from provider
     user_info, error_msg = get_user_info(provider, token_data['access_token'])
     if error_msg:
         return jsonify({'error': error_msg}), 400
-    
+
     # Check if this OAuth account is already linked to another user
     provider_model = OAuthProvider.query.filter_by(name=provider).first()
     if provider_model:
@@ -313,13 +313,13 @@ def handle_oauth_link(provider, code, error, current_user):
             provider_id=provider_model.id,
             provider_user_id=str(user_info.get('id', user_info.get('sub', '')))
         ).first()
-        
+
         if existing_oauth_account and existing_oauth_account.user_id != current_user.id:
             return jsonify({'error': 'This OAuth account is already linked to another user'}), 400
-    
+
     # Store OAuth account information for current user
     _store_oauth_account(current_user.id, provider, user_info, token_data)
-    
+
     return jsonify({
         'message': f'Successfully linked {provider} to your account',
         'user': {
@@ -342,3 +342,70 @@ def get_oauth_providers_list():
             'color': _get_provider_color(provider.name)
         } for provider in providers]
     }), 200
+
+
+# OAuth Blueprint
+oauth_bp = Blueprint('oauth', __name__, url_prefix='/api/v1/auth/oauth')
+
+
+@oauth_bp.route('/<provider>/authorize', methods=['GET'])
+def oauth_authorize(provider):
+    """Redirect user to OAuth provider for authorization"""
+    from flask import request
+    redirect_uri = request.args.get('redirect_uri')
+    if not redirect_uri:
+        return jsonify({'error': 'Missing redirect_uri parameter'}), 400
+
+    return handle_oauth_authorize(provider, redirect_uri)
+
+
+@oauth_bp.route('/<provider>/callback', methods=['GET'])
+def oauth_callback(provider):
+    """Handle OAuth callback from provider"""
+    from flask import request
+    code = request.args.get('code')
+    error = request.args.get('error')
+
+    return handle_oauth_callback(provider, code, error)
+
+
+@oauth_bp.route('/<provider>/link', methods=['GET'])
+@jwt_required()
+def oauth_link(provider):
+    """Handle OAuth linking for existing users"""
+    from flask import request
+    code = request.args.get('code')
+    error = request.args.get('error')
+
+    # Get current user from JWT
+    current_username = get_jwt_identity()
+    current_user = User.query.filter_by(username=current_username).first()
+
+    if not current_user:
+        return jsonify({'error': 'User not found'}), 404
+
+    return handle_oauth_link(provider, code, error, current_user)
+
+
+@oauth_bp.route('/providers', methods=['GET'])
+def get_oauth_providers():
+    """Get list of available OAuth providers"""
+    return get_oauth_providers_list()
+
+
+@oauth_bp.route('/connect/<provider>', methods=['POST'])
+@jwt_required()
+def connect_oauth_provider(provider):
+    """Connect OAuth provider to existing user account"""
+    current_username = get_jwt_identity()
+    user = User.query.filter_by(username=current_username).first()
+
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+
+    # This endpoint would handle connecting additional OAuth providers
+    # For now, we'll return a message indicating it's not implemented
+    return jsonify({'message': 'OAuth provider connection not yet implemented'}), 501
+
+
+# The end.
