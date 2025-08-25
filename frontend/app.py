@@ -8,6 +8,19 @@ app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-change-in-production')
 
 BACKEND_URL = os.getenv('BACKEND_URL', 'http://localhost:5000')
 
+
+@app.context_processor
+def inject_user():
+    """Inject user information into all templates"""
+    if 'access_token' in session:
+        # Use session data for template context to avoid circular imports
+        return {
+            'current_user': session.get('user'), 
+            'is_authenticated': True
+        }
+    
+    return {'current_user': None, 'is_authenticated': False}
+
 # OAuth Provider Display Configuration
 OAUTH_PROVIDER_DISPLAY = {
     'google': {
@@ -22,13 +35,47 @@ OAUTH_PROVIDER_DISPLAY = {
     }
 }
 
+def validate_jwt_token():
+    """Validate JWT token with backend and return user info if valid"""
+    if 'access_token' not in session:
+        return None
+    
+    try:
+        headers = {'Authorization': f'Bearer {session["access_token"]}'}
+        response = requests.get(f'{BACKEND_URL}/api/v1/me', headers=headers)
+        
+        if response.status_code == 200:
+            data = response.json()
+            # Update session with fresh user data
+            session['user'] = data['user']
+            session['is_admin'] = data['user']['is_admin']
+            return data['user']
+        else:
+            # Token is invalid or expired
+            print(f"JWT validation failed: {response.status_code}")
+            return None
+    except requests.RequestException as e:
+        print(f"JWT validation error: {e}")
+        return None
+
+
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'access_token' not in session:
             return redirect(url_for('login'))
+        
+        # Validate JWT token with backend
+        user = validate_jwt_token()
+        if not user:
+            # Clear invalid session
+            session.clear()
+            flash('Your session has expired. Please log in again.', 'error')
+            return redirect(url_for('login'))
+        
         return f(*args, **kwargs)
     return decorated_function
+
 
 def admin_required(f):
     @wraps(f)
@@ -36,10 +83,20 @@ def admin_required(f):
         if 'access_token' not in session:
             print("Admin required: No access token in session")
             return redirect(url_for('login'))
-        if not session.get('is_admin'):
-            print(f"Admin required: User is not admin. Session: {session}")
+        
+        # Validate JWT token with backend
+        user = validate_jwt_token()
+        if not user:
+            # Clear invalid session
+            session.clear()
+            flash('Your session has expired. Please log in again.', 'error')
+            return redirect(url_for('login'))
+        
+        if not user.get('is_admin'):
+            print(f"Admin required: User is not admin. User: {user}")
             flash('Admin privileges required', 'error')
             return redirect(url_for('dashboard'))
+        
         print(f"Admin required: User is admin, proceeding")
         return f(*args, **kwargs)
     return decorated_function
@@ -90,6 +147,26 @@ def login():
         print(f"Login: Connection error loading OAuth providers: {e}")
     
     return render_template('login.html', oauth_providers=oauth_providers)
+
+@app.route('/api/validate-session')
+def validate_session():
+    """AJAX endpoint to validate JWT session"""
+    if 'access_token' not in session:
+        return jsonify({'valid': False, 'message': 'No session found'}), 401
+    
+    user = validate_jwt_token()
+    if user:
+        return jsonify({
+            'valid': True, 
+            'user': user,
+            'message': 'Session is valid'
+        }), 200
+    else:
+        return jsonify({
+            'valid': False, 
+            'message': 'Session has expired'
+        }), 401
+
 
 @app.route('/logout')
 def logout():
@@ -362,6 +439,68 @@ def delete_oauth_provider(provider_id):
         flash('Connection error', 'error')
     
     return redirect(url_for('oauth_providers'))
+
+
+@app.route('/admin/sessions')
+@admin_required
+def jwt_sessions():
+    """JWT sessions management page"""
+    try:
+        headers = {'Authorization': f'Bearer {session["access_token"]}'}
+        response = requests.get(
+            f'{BACKEND_URL}/api/v1/admin/sessions',
+            headers=headers
+        )
+        
+        if response.status_code == 200:
+            sessions_data = response.json()
+            return render_template('jwt_sessions.html', sessions=sessions_data['sessions'])
+        else:
+            flash('Failed to load JWT sessions', 'error')
+            return redirect(url_for('admin'))
+    except requests.RequestException:
+        flash('Connection error', 'error')
+        return redirect(url_for('admin'))
+
+
+@app.route('/admin/sessions/<int:session_id>/expire', methods=['POST'])
+@admin_required
+def expire_session(session_id):
+    """Expire a specific JWT session"""
+    try:
+        headers = {'Authorization': f'Bearer {session["access_token"]}'}
+        response = requests.post(
+            f'{BACKEND_URL}/api/v1/admin/sessions/{session_id}/expire',
+            headers=headers
+        )
+        
+        if response.status_code == 200:
+            return jsonify({'message': 'Session expired successfully'}), 200
+        else:
+            error_data = response.json()
+            return jsonify({'error': error_data.get("error", "Unknown error")}), 400
+    except requests.RequestException:
+        return jsonify({'error': 'Connection error'}), 500
+
+
+@app.route('/admin/sessions/expire-all', methods=['POST'])
+@admin_required
+def expire_all_sessions():
+    """Expire all active JWT sessions"""
+    try:
+        headers = {'Authorization': f'Bearer {session["access_token"]}'}
+        response = requests.post(
+            f'{BACKEND_URL}/api/v1/admin/sessions/expire-all',
+            headers=headers
+        )
+        
+        if response.status_code == 200:
+            return jsonify({'message': 'All sessions expired successfully'}), 200
+        else:
+            error_data = response.json()
+            return jsonify({'error': error_data.get("error", "Unknown error")}), 400
+    except requests.RequestException:
+        return jsonify({'error': 'Connection error'}), 500
 
 
 # OAuth Routes

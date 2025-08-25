@@ -261,6 +261,15 @@ def handle_oauth_callback(provider, code, error):
 
     # Create JWT token
     access_token = create_access_token(identity=user.username)
+    
+    # Get JTI from the token and create session record
+    from flask_jwt_extended import decode_token
+    token_data_jwt = decode_token(access_token)
+    jti = token_data_jwt['jti']
+    
+    # Create session record
+    from .utils import create_jwt_session
+    create_jwt_session(jti, user.id, f'oauth_{provider}')
 
     # Store OAuth account information
     _store_oauth_account(user.id, provider, user_info, token_data)

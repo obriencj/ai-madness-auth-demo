@@ -4,16 +4,16 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 
 # Import models and database instances
-from .model import db, User, OAuthProvider, OAuthAccount
+from .model import db, User, OAuthProvider, OAuthAccount, JWTSession
 
 # Import JWT functionality
 from .jwt import (
-    configure_jwt,
-    jwt_required, create_access_token,
-    get_jwt_identity, get_jwt
+    configure_jwt, expire_jwt_session,
+    jwt_required, create_access_token, create_jwt_session,
+    get_jwt_identity, get_jwt, jwt_bp
 )
 
-# Import OAuth blueprint
+# Import blueprints
 from .oauth import oauth_bp
 
 
@@ -34,6 +34,7 @@ def create_app():
 
     # Register blueprints
     app.register_blueprint(oauth_bp)
+    app.register_blueprint(jwt_bp)
 
     return app
 
@@ -52,7 +53,16 @@ def login():
     user = User.query.filter_by(username=data['username']).first()
 
     if user and user.check_password(data['password']) and user.is_active:
+        # Create JWT token
         access_token = create_access_token(identity=user.username)
+
+        # Get JTI from the token
+        from flask_jwt_extended import decode_token
+        token_data = decode_token(access_token)
+        jti = token_data['jti']
+
+        # Create session record
+        create_jwt_session(jti, user.id, 'password')
 
         return jsonify({
             'access_token': access_token,
@@ -70,9 +80,7 @@ def login():
 @app.route('/api/v1/auth/logout', methods=['POST'])
 @jwt_required()
 def logout():
-    jti = get_jwt()["jti"]
-    from jwt import blacklist_token
-    blacklist_token(jti, timedelta(hours=1))
+    expire_jwt_session(get_jwt()["jti"])
     return jsonify({'message': 'Successfully logged out'}), 200
 
 
@@ -148,6 +156,14 @@ def self_register():
 
         # Create JWT token for immediate login
         access_token = create_access_token(identity=new_user.username)
+
+        # Get JTI from the token
+        from flask_jwt_extended import decode_token
+        token_data = decode_token(access_token)
+        jti = token_data['jti']
+
+        # Create session record
+        create_jwt_session(jti, new_user.id, 'password')
 
         return jsonify({
             'message': 'User registered successfully',
@@ -274,6 +290,9 @@ def get_current_user():
             'is_admin': user.is_admin
         }
     }), 200
+
+
+
 
 
 # User Account Management Routes
