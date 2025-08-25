@@ -1,0 +1,30 @@
+
+
+rename to py-gilla-auth
+
+license to GPLv3
+
+three packages under a gilla_auth namespace pacakge
+* gilla_auth.backend
+* gilla_auth.frontend
+* gilla_auth.cli
+
+/ dir
+* docker-compose.yml
+
+/backend
+* setup.cfg
+* gilla_auth/backend/[...]
+
+/frontend
+* setup.cfg
+* gilla_auth/frontend/[...]
+
+/cli
+* setup.cfg
+* gilla_auth/cli/[...]
+
+/demo
+* docker-compose.yml
+  * includes ../docker-compose.yml
+* app.py

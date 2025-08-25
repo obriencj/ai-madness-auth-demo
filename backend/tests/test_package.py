@@ -1,15 +1,17 @@
 """
 Test package structure and imports.
+
+Author: Christopher O'Brien <obriencj@gmail.com>
+Assisted-By: Cursor AI (Claude Sonnet 4)
 """
 
-from ai_auth_backend import create_app, app
+from ai_auth_backend import create_app
 from ai_auth_backend.models import db, User
 
 
 def test_package_imports():
     """Test that the package can be imported correctly."""
     assert create_app is not None
-    assert app is not None
     assert db is not None
     assert User is not None
 

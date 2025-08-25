@@ -1,5 +1,7 @@
 # Development dependencies for AI Auth Backend
 # Production dependencies are defined in pyproject.toml
+# Author: Christopher O'Brien <obriencj@gmail.com>
+# Assisted-By: Cursor AI (Claude Sonnet 4)
 
 # Build tools
 build>=0.10.0

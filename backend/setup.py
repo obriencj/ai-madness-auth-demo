@@ -1,5 +1,8 @@
 """
 Setup configuration for ai_auth_backend package.
+
+Author: Christopher O'Brien <obriencj@gmail.com>
+Assisted-By: Cursor AI (Claude Sonnet 4)
 """
 
 from setuptools import setup, find_packages
@@ -10,8 +13,8 @@ with open("README.md", "r", encoding="utf-8") as fh:
 setup(
     name="ai_auth_backend",
     version="0.1.0",
-    author="AI Madness Team",
-    author_email="team@ai-madness.com",
+    author="Christopher O'Brien <obriencj@gmail.com>",
+    author_email="obriencj@gmail.com",
     description="A self-hosted, open-source authentication service",
     long_description=long_description,
     long_description_content_type="text/markdown",

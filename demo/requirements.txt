@@ -1,5 +1,9 @@
-Flask==2.3.3
-requests==2.31.0
-Werkzeug==2.3.7
+# Demo application dependencies
+# Author: Christopher O'Brien <obriencj@gmail.com>
+# Assisted-By: Cursor AI (Claude Sonnet 4)
+
+Flask
+requests
+Werkzeug
 
 # The end.

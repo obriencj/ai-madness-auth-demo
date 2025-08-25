@@ -3,6 +3,9 @@ Demo application showcasing the authentication service integration.
 
 This application demonstrates how to integrate with the standalone auth service
 and provides a simple hello world endpoint with authentication.
+
+Author: Christopher O'Brien <obriencj@gmail.com>
+Assisted-By: Cursor AI (Claude Sonnet 4)
 """
 
 import os

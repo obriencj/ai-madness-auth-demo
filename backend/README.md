@@ -1,5 +1,8 @@
 # Authentication Service
 
+**Author**: Christopher O'Brien <obriencj@gmail.com>  
+**Assisted-By**: Cursor AI (Claude Sonnet 4)
+
 A **self-hosted, open-source authentication service** that provides user management, OAuth integration, and JWT authentication for your applications.
 
 ## 🎯 **Use Case**

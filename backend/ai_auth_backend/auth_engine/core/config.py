@@ -1,135 +1,69 @@
 """
 Configuration management for the Authentication Engine.
+
+Author: Christopher O'Brien <obriencj@gmail.com>
+Assisted-By: Cursor AI (Claude Sonnet 4)
 """
 
 import os
-from typing import Dict, Any, List, Optional
-from datetime import timedelta
-from ..exceptions import ConfigurationError
+from typing import List, Optional
 
 
 class AuthConfig:
-    """Configuration class for the Authentication Engine."""
+    """Configuration class for authentication settings."""
     
-    def __init__(self, config_dict: Optional[Dict[str, Any]] = None):
-        """Initialize configuration with defaults or provided config."""
-        self._config = config_dict or {}
-        self._validate_config()
-    
-    @property
-    def providers(self) -> List[str]:
-        """Get list of enabled authentication providers."""
-        return self._config.get('providers', ['password'])
-    
-    @property
-    def session_store(self) -> str:
-        """Get session store type."""
-        return self._config.get('session_store', 'memory')
-    
-    @property
-    def jwt_expiry(self) -> timedelta:
-        """Get JWT token expiry time."""
-        expiry_str = self._config.get('jwt_expiry', '1h')
-        return self._parse_timedelta(expiry_str)
-    
-    @property
-    def jwt_secret_key(self) -> str:
-        """Get JWT secret key."""
-        return self._config.get('jwt_secret_key') or os.getenv(
-            'JWT_SECRET_KEY', 
-            'your-super-secret-jwt-key-change-in-production'
-        )
-    
-    @property
-    def database_url(self) -> str:
-        """Get database URL."""
-        return self._config.get('database_url') or os.getenv(
-            'DATABASE_URL',
-            'postgresql://auth_user:auth_password@localhost:5432/auth_demo'
-        )
-    
-    @property
-    def redis_url(self) -> str:
-        """Get Redis URL for session storage."""
-        return self._config.get('redis_url') or os.getenv(
-            'REDIS_URL', 
-            'redis://localhost:6379'
-        )
-    
-    @property
-    def user_model(self) -> str:
-        """Get custom user model class name."""
-        return self._config.get('user_model', 'User')
-    
-    @property
-    def enable_admin(self) -> bool:
-        """Check if admin functionality is enabled."""
-        return self._config.get('enable_admin', True)
-    
-    @property
-    def enable_oauth(self) -> bool:
-        """Check if OAuth functionality is enabled."""
-        return self._config.get('enable_oauth', True)
-    
-    @property
-    def enable_session_tracking(self) -> bool:
-        """Check if session tracking is enabled."""
-        return self._config.get('enable_session_tracking', True)
-    
-    @property
-    def hooks(self) -> Dict[str, str]:
-        """Get custom hooks configuration."""
-        return self._config.get('hooks', {})
-    
-    @property
-    def permissions(self) -> List[str]:
-        """Get available permissions."""
-        return self._config.get('permissions', ['read', 'write', 'admin'])
-    
-    def _validate_config(self):
-        """Validate configuration values."""
-        if not isinstance(self.providers, list):
-            raise ConfigurationError("providers must be a list")
+    def __init__(self, config_dict: Optional[dict] = None):
+        """Initialize configuration with defaults or provided values."""
+        # Default configuration
+        self.providers = ['password']
+        self.session_store = 'memory'  # 'memory' or 'redis'
+        self.jwt_expiry = '1h'
+        self.jwt_secret_key = os.getenv('JWT_SECRET_KEY', 'dev-jwt-secret')
+        self.database_url = os.getenv('DATABASE_URL', 'sqlite:///auth.db')
+        self.redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
+        self.enable_admin = False
+        self.enable_oauth = False
+        self.enable_session_tracking = True
+        self.permissions = ['read', 'write']
         
-        if self.session_store not in ['memory', 'redis', 'database']:
-            raise ConfigurationError(
-                "session_store must be one of: memory, redis, database"
-            )
+        # Override with provided configuration
+        if config_dict:
+            for key, value in config_dict.items():
+                if hasattr(self, key):
+                    setattr(self, key, value)
     
-    def _parse_timedelta(self, time_str: str) -> timedelta:
-        """Parse time string into timedelta."""
-        if not time_str:
-            return timedelta(hours=1)
+    def get_provider_config(self, provider_name: str) -> dict:
+        """Get configuration for a specific provider."""
+        if provider_name == 'password':
+            return {
+                'enabled': 'password' in self.providers,
+                'min_password_length': 8,
+                'require_special_chars': True
+            }
+        elif provider_name.startswith('oauth_'):
+            oauth_provider = provider_name.replace('oauth_', '')
+            return {
+                'enabled': provider_name in self.providers,
+                'client_id': os.getenv(f'{oauth_provider.upper()}_CLIENT_ID'),
+                'client_secret': os.getenv(f'{oauth_provider.upper()}_CLIENT_SECRET'),
+                'redirect_uri': os.getenv(f'{oauth_provider.upper()}_REDIRECT_URI')
+            }
+        return {}
+    
+    def validate(self) -> List[str]:
+        """Validate configuration and return list of errors."""
+        errors = []
         
-        # Simple parsing for common formats
-        if time_str.endswith('h'):
-            hours = int(time_str[:-1])
-            return timedelta(hours=hours)
-        elif time_str.endswith('m'):
-            minutes = int(time_str[:-1])
-            return timedelta(minutes=minutes)
-        elif time_str.endswith('d'):
-            days = int(time_str[:-1])
-            return timedelta(days=days)
-        else:
-            # Default to hours
-            try:
-                hours = int(time_str)
-                return timedelta(hours=hours)
-            except ValueError:
-                return timedelta(hours=1)
-    
-    def get(self, key: str, default: Any = None) -> Any:
-        """Get configuration value by key."""
-        return self._config.get(key, default)
-    
-    def set(self, key: str, value: Any):
-        """Set configuration value."""
-        self._config[key] = value
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert configuration to dictionary."""
-        return self._config.copy()
+        if not self.providers:
+            errors.append("At least one authentication provider must be configured")
+        
+        if self.session_store == 'redis' and not self.redis_url:
+            errors.append("Redis URL must be configured when using Redis session store")
+        
+        if not self.jwt_secret_key or self.jwt_secret_key == 'dev-jwt-secret':
+            errors.append("JWT secret key should be changed in production")
+        
+        return errors
 
 
 # The end.

@@ -1,4 +1,6 @@
 # Makefile for AI Auth Backend development
+# Author: Christopher O'Brien <obriencj@gmail.com>
+# Assisted-By: Cursor AI (Claude Sonnet 4)
 
 .PHONY: help install install-dev build clean test lint format check build-wheel install-wheel run dev
 

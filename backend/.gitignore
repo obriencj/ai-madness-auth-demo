@@ -1,3 +1,7 @@
+# .gitignore for AI Auth Backend Python Package
+# Author: Christopher O'Brien <obriencj@gmail.com>
+# Assisted-By: Cursor AI (Claude Sonnet 4)
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -102,7 +106,7 @@ ipython_config.py
 #poetry.lock
 
 # pdm
-#   Similar to Pipfile.lock, it is generally recommended to include pdm.lock in version control.
+#   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
 #pdm.lock
 #   pdm stores project-wide configurations in .pdm.toml, but it is recommended to not include it
 #   in version control.

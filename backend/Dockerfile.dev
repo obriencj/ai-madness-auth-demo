@@ -1,4 +1,7 @@
 # Development Dockerfile for AI Auth Backend
+# Author: Christopher O'Brien <obriencj@gmail.com>
+# Assisted-By: Cursor AI (Claude Sonnet 4)
+
 FROM python:3.11-slim
 
 # Set working directory

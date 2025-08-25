@@ -1,246 +1,240 @@
 # Demo Application
 
-A demonstration application showcasing integration with the standalone Authentication Service.
+**Author**: Christopher O'Brien <obriencj@gmail.com>  
+**Assisted-By**: Cursor AI (Claude Sonnet 4)
+
+A demonstration application that showcases how to integrate with the standalone authentication service.
 
 ## Overview
 
-This demo application shows how to integrate with the Auth Service using:
-- **JWT Token Authentication**: Secure token-based authentication
-- **API Key Authentication**: Service-to-service authentication
-- **Session Management**: Client-side session handling
-- **Protected Endpoints**: API endpoints requiring authentication
+This demo application provides a simple "Hello World" interface that demonstrates:
+
+- **Authentication Integration**: How to authenticate users via the auth service
+- **JWT Token Management**: How to handle JWT tokens from the auth service
+- **Protected Routes**: How to protect routes using authentication
+- **Service Communication**: How to communicate with the auth service API
 
 ## Features
 
-- ✅ **Login/Logout**: Integration with Auth Service authentication
-- ✅ **Protected Pages**: Hello world page requiring authentication
-- ✅ **API Endpoints**: Protected REST API endpoints
-- ✅ **User Information**: Display current user details
-- ✅ **Admin Access**: Redirect to Auth Service admin interface
-- ✅ **Session Validation**: Automatic token validation on each request
+### 🔐 **Authentication Flow**
+1. User visits the demo app
+2. Redirected to login if not authenticated
+3. Login credentials sent to auth service
+4. JWT token received and stored in session
+5. User can access protected routes
+
+### 🛡️ **Protected Endpoints**
+- `/hello` - Protected page showing user info
+- `/api/hello` - Protected API endpoint
+- `/admin` - Admin-only route (redirects to auth service)
+
+### 🔄 **Session Management**
+- JWT tokens validated on each request
+- Automatic session expiration handling
+- Seamless logout process
+
+## Quick Start
+
+### 1. **Start the Auth Service**
+```bash
+# From the project root
+docker-compose up -d backend
+```
+
+### 2. **Start the Demo App**
+```bash
+# From the project root
+docker-compose up -d demo
+```
+
+### 3. **Access the Demo**
+- **URL**: http://localhost:5001
+- **Default Credentials**: Use the admin account from the auth service
 
 ## Architecture
 
 ```
 ┌─────────────────┐    ┌─────────────────┐
-│   Demo App      │    │   Auth Service  │
-│   (Port 5001)   │◄──►│   (Port 5000)   │
+│   Demo App      │◄──►│   Auth Service  │
+│   (Port 5001)   │    │   (Port 5000)   │
 │                 │    │                 │
 │ ┌─────────────┐ │    │ ┌─────────────┐ │
 │ │   Frontend  │ │    │ │   Backend   │ │
-│ │   (Flask)   │ │    │ │   (Flask)   │ │
+│ │   Routes    │ │    │ │   API       │ │
 │ └─────────────┘ │    │ └─────────────┘ │
 └─────────────────┘    └─────────────────┘
-         │                       │
-         │                       │
-         └───────────────────────┼───────────────────────┐
-                                 │                       │
-                    ┌─────────────────┐    ┌─────────────────┐
-                    │   PostgreSQL    │    │     Redis       │
-                    │   Database      │    │   (Sessions)    │
-                    └─────────────────┘    └─────────────────┘
 ```
 
-## Quick Start
-
-### 1. Prerequisites
-
-- Docker and Docker Compose
-- Auth Service running on port 5000
-- PostgreSQL database
-- Redis server
-
-### 2. Environment Variables
-
-```bash
-# Demo App Configuration
-SECRET_KEY=demo-secret-key-change-in-production
-AUTH_SERVICE_URL=http://localhost:5000
-DEMO_API_KEY=demo-api-key
-
-# Database (if running standalone)
-DATABASE_URL=postgresql://user:pass@localhost:5432/demo
-```
-
-### 3. Run with Docker
-
-```bash
-# Build and run
-docker build -t demo-app .
-docker run -p 5001:5001 \
-  -e AUTH_SERVICE_URL=http://localhost:5000 \
-  -e DEMO_API_KEY=demo-api-key \
-  demo-app
-```
-
-### 4. Run Locally
-
-```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Run the application
-python app.py
-```
+### **Integration Points**
+- **Authentication**: `/api/v1/auth/login`
+- **User Info**: `/api/v1/me`
+- **Logout**: `/api/v1/auth/logout`
+- **Admin**: `/admin` (redirects to auth service)
 
 ## API Endpoints
 
-### Public Endpoints
-
+### **Public Routes**
 - `GET /` - Home page (redirects to login or hello)
-- `GET /login` - Login page
-- `POST /login` - Login form submission
+- `GET /login` - Login form
+- `POST /login` - Process login
 
-### Protected Endpoints
+### **Protected Routes**
+- `GET /hello` - Protected hello world page
+- `GET /api/hello` - Protected API endpoint
+- `GET /admin` - Admin dashboard (redirects to auth service)
 
-- `GET /hello` - Hello world page (requires authentication)
-- `GET /api/hello` - Hello world API (requires authentication)
-- `GET /admin` - Admin dashboard redirect (requires admin)
-- `GET /logout` - Logout user
+### **Session Management**
+- `GET /logout` - Logout and clear session
 
 ## Authentication Flow
 
-1. **User visits demo app** → Redirected to login
-2. **User submits credentials** → Demo app calls Auth Service
-3. **Auth Service validates** → Returns JWT token
-4. **Demo app stores token** → In session storage
-5. **User accesses protected page** → Demo app validates token
-6. **Token validation** → Demo app calls Auth Service `/me` endpoint
-7. **User sees protected content** → Authentication successful
-
-## Integration Points
-
-### 1. Login Integration
-
+### **1. Login Process**
 ```python
-# Demo app calls Auth Service login
+# User submits login form
 response = requests.post(
-    f'{AUTH_SERVICE_URL}/api/v1/auth/login',
-    json={'username': username, 'password': password},
-    headers={'X-API-Key': DEMO_API_KEY}
+    'http://auth-service:5000/api/v1/auth/login',
+    json={'username': username, 'password': password}
 )
+
+# Store JWT token in session
+session['access_token'] = response.json()['access_token']
 ```
 
-### 2. Token Validation
-
+### **2. Token Validation**
 ```python
-# Demo app validates token with Auth Service
+# Validate token on each request
+headers = {'Authorization': f'Bearer {session["access_token"]}'}
 response = requests.get(
-    f'{AUTH_SERVICE_URL}/api/v1/me',
-    headers={
-        'Authorization': f'Bearer {token}',
-        'X-API-Key': DEMO_API_KEY
-    }
+    'http://auth-service:5000/api/v1/me',
+    headers=headers
 )
+
+# Update session with fresh user data
+session['user'] = response.json()['user']
 ```
 
-### 3. Logout Integration
-
+### **3. Logout Process**
 ```python
-# Demo app calls Auth Service logout
-response = requests.post(
-    f'{AUTH_SERVICE_URL}/api/v1/auth/logout',
-    headers={
-        'Authorization': f'Bearer {token}',
-        'X-API-Key': DEMO_API_KEY
-    }
+# Send logout request to auth service
+headers = {'Authorization': f'Bearer {session["access_token"]}'}
+requests.post(
+    'http://auth-service:5000/api/v1/auth/logout',
+    headers=headers
 )
+
+# Clear local session
+session.clear()
 ```
 
 ## Demo Credentials
 
-The demo app uses the same credentials as the Auth Service:
+Use the default admin account created by the auth service:
 
-- **Admin User**: `admin` / `admin123`
-- **Regular User**: `user` / `password`
+- **Username**: `admin`
+- **Password**: `admin123`
 
 ## Development
 
-### Project Structure
-
-```
-demo/
-├── app.py              # Main Flask application
-├── requirements.txt    # Python dependencies
-├── Dockerfile         # Container configuration
-├── README.md          # This file
-└── templates/         # HTML templates
-    ├── login.html     # Login page
-    └── hello.html     # Hello world page
+### **Local Development**
+```bash
+cd demo
+pip install -r requirements.txt
+python app.py
 ```
 
-### Adding New Features
+### **Docker Development**
+```bash
+# Build and run
+docker build -t demo-app .
+docker run -p 5001:5001 demo-app
 
-1. **New Protected Page**:
-   ```python
-   @app.route('/new-page')
-   @login_required
-   def new_page():
-       return render_template('new_page.html')
-   ```
+# With environment variables
+docker run -p 5001:5001 \
+  -e AUTH_SERVICE_URL=http://localhost:5000 \
+  -e SECRET_KEY=your-secret-key \
+  demo-app
+```
 
-2. **New API Endpoint**:
-   ```python
-   @app.route('/api/new-endpoint')
-   @login_required
-   def new_api():
-       return jsonify({'message': 'New endpoint'})
-   ```
-
-3. **Admin-Only Features**:
-   ```python
-   @app.route('/admin-only')
-   @login_required
-   def admin_only():
-       if not session.get('is_admin'):
-           flash('Admin privileges required', 'error')
-           return redirect(url_for('hello'))
-       return render_template('admin_page.html')
-   ```
+### **Environment Variables**
+```bash
+AUTH_SERVICE_URL=http://localhost:5000  # Auth service URL
+SECRET_KEY=your-secret-key              # Flask secret key
+```
 
 ## Troubleshooting
 
-### Common Issues
+### **Common Issues**
 
-1. **Connection Error to Auth Service**:
-   - Check if Auth Service is running on port 5000
-   - Verify `AUTH_SERVICE_URL` environment variable
-   - Check network connectivity
+#### **1. Auth Service Unavailable**
+```
+Error: Connection error to auth service
+```
+**Solution**: Ensure the auth service is running on the expected port.
 
-2. **Invalid API Key**:
-   - Verify `DEMO_API_KEY` matches Auth Service configuration
-   - Check Auth Service tenant configuration
+#### **2. JWT Validation Fails**
+```
+Error: JWT validation failed: 401
+```
+**Solution**: Check that the JWT token is valid and not expired.
 
-3. **Session Expired**:
-   - JWT token may have expired
-   - Auth Service may be unavailable
-   - Check Redis connectivity for session storage
+#### **3. Session Always Expired**
+```
+Error: Your session has expired
+```
+**Solution**: Verify the auth service `/api/v1/me` endpoint is working.
 
-### Debug Mode
+### **Debug Mode**
+Enable debug mode to see detailed error messages:
 
-Enable debug mode for detailed error messages:
-
-```python
-app.run(debug=True, host='0.0.0.0', port=5001)
+```bash
+export FLASK_DEBUG=1
+python app.py
 ```
 
 ## Security Considerations
 
-- **API Keys**: Store API keys securely in environment variables
-- **HTTPS**: Use HTTPS in production for secure communication
-- **Token Storage**: JWT tokens are stored in session (server-side)
-- **Validation**: All protected endpoints validate tokens with Auth Service
-- **Logout**: Properly invalidate tokens on logout
+### **Production Deployment**
+- **Change Default Secrets**: Update `SECRET_KEY` in production
+- **HTTPS**: Use HTTPS in production environments
+- **Token Expiry**: Configure appropriate JWT token expiry times
+- **Rate Limiting**: Implement rate limiting for login attempts
 
-## Next Steps
+### **Session Security**
+- **Secure Cookies**: Use secure cookies in production
+- **HTTP Only**: Set appropriate cookie flags
+- **CSRF Protection**: Consider adding CSRF protection
 
-This demo application can be extended to:
+## Integration Examples
 
-1. **Add more protected pages** and API endpoints
-2. **Implement user registration** integration
-3. **Add OAuth provider** integration
-4. **Create custom user profiles** with Auth Service user mapping
-5. **Add role-based access control** (RBAC)
-6. **Implement audit logging** for user actions
+### **Other Applications**
+This demo shows the pattern for integrating any application with the auth service:
+
+1. **Send login requests** to the auth service
+2. **Store JWT tokens** in your application's session
+3. **Validate tokens** on protected routes
+4. **Handle logout** by clearing local sessions
+
+### **Customization**
+- **Theming**: Customize the UI to match your application
+- **Additional Routes**: Add your own protected routes
+- **User Profiles**: Extend with user profile management
+- **Role-Based Access**: Implement custom permission logic
+
+## Contributing
+
+This demo application is part of the larger AI Auth Backend project. To contribute:
+
+1. **Fork the repository**
+2. **Create a feature branch**
+3. **Make your changes**
+4. **Submit a pull request**
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](../LICENSE) file for details.
+
+---
+
+**Get started with authentication in minutes!** 🚀
 
 # The end.

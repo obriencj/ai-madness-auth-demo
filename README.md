@@ -1,217 +1,302 @@
-# Auth Demo Application Stack
+# AI Auth Backend
 
-A complete demonstration of JWT authentication with Redis session management, featuring a Flask backend API and a Flask frontend web application.
+**Author**: Christopher O'Brien <obriencj@gmail.com>  
+**Assisted-By**: Cursor AI (Claude Sonnet 4)
 
-## Architecture
+A **self-hosted, open-source authentication service** that provides user management, OAuth integration, and JWT authentication for your applications.
 
-- **Backend**: Flask API with JWT authentication, PostgreSQL database, and Redis session management
-- **Frontend**: Flask web application with Jinja2 templates and minimal JavaScript
-- **Database**: PostgreSQL for persistent user data storage with automatic initialization
-- **Cache**: Redis for JWT token blacklisting and session management
-- **Proxy**: Nginx reverse proxy for unified interface
-- **Containerization**: Docker/Podman with docker-compose orchestration
+## 🎯 **Use Case**
 
-## Features
+Add authentication to your application with **minimal setup**:
 
-### Backend API Endpoints
-- `POST /api/v1/auth/login` - User authentication
-- `POST /api/v1/auth/logout` - User logout (token blacklisting)
-- `POST /api/v1/auth/register` - Self-registration for new users
-- `POST /api/v1/register` - Create new users (admin only)
-- `GET /api/v1/users` - List all users (admin only)
-- `PUT /api/v1/users/<id>` - Update user (admin only)
-- `GET /api/v1/hello` - Protected hello world endpoint
-- `GET /api/v1/me` - Get current user info
-- `GET /api/v1/auth/oauth/<provider>/authorize` - OAuth authorization
-- `GET /api/v1/auth/oauth/<provider>/callback` - OAuth callback handling
-- `GET /api/v1/auth/oauth/providers` - List available OAuth providers
-- `GET /api/v1/admin/oauth-providers` - Get all OAuth providers (admin)
-- `POST /api/v1/admin/oauth-providers` - Create new OAuth provider (admin)
-- `PUT /api/v1/admin/oauth-providers/<id>` - Update OAuth provider (admin)
-- `DELETE /api/v1/admin/oauth-providers/<id>` - Delete OAuth provider (admin)
-
-### Frontend Features
-- User login/logout with session management
-- **OAuth login support (Google, GitHub)**
-- **User self-registration**
-- **OAuth provider management (admin)**
-- Admin dashboard for user management
-- Hello world page demonstrating API integration
-- Responsive Bootstrap UI
-- Flash message notifications
-
-## Prerequisites
-
-- Podman (or Docker)
-- podman-compose (or docker-compose)
-- Make
-
-## Quick Start
-
-1. **Clone and navigate to the project:**
-   ```bash
-   cd /path/to/your/project
-   ```
-
-2. **Start the application stack:**
-   ```bash
-   make start
-   ```
-
-## Makefile Commands
-
-The project includes a Makefile for easy management:
-
-- `make help` - Show available commands
-- `make build` - Build all containers
-- `make start` - Start the application stack
-- `make stop` - Stop the application stack
-- `make restart` - Restart the application stack
-- `make logs` - View application logs
-- `make status` - Show service status
-- `make clean` - Stop and remove all containers, networks, and volumes
-
-3. **Access the application:**
-   - Application: http://localhost:8080
-   - Frontend: http://localhost:8080 (served under /)
-   - Backend API: http://localhost:8080/api/v1
-   - PostgreSQL: localhost:5432
-   - Redis: localhost:6379
-
-4. **Default admin credentials:**
-   - Username: `admin`
-   - Password: `admin123`
-
-### OAuth Provider Management
-
-OAuth provider configuration is stored in the database, including:
-- Client ID and Secret
-- Authorization, Token, and User Info URLs
-- Scope values
-- Active status
-
-
-## Service Details
-
-### Nginx Proxy Service (Port 8080)
-- Reverse proxy for unified interface
-- Routes frontend requests to port 8000
-- Routes API requests to port 5000
-- Handles CORS and request forwarding
-
-### Backend Service (Port 5000)
-- Flask application with JWT authentication
-- Gunicorn WSGI server for production deployment
-- PostgreSQL integration for user management
-- Redis integration for token blacklisting
-- CORS enabled for frontend communication
-- Database connection validation on startup
-
-### Frontend Service (Port 8000)
-- Flask web application with session management
-- Gunicorn WSGI server for production deployment
-- Jinja2 templates with Bootstrap styling
-- Minimal JavaScript for enhanced UX
-- Admin dashboard for user management
-- Session-aware navigation
-
-### Database Service (Port 5432)
-- PostgreSQL 15 with persistent volume
-- Database: `auth_demo`
-- User: `auth_user`
-- Password: `auth_password`
-- Automatic schema initialization and admin user creation
-
-### Cache Service (Port 6379)
-- Redis 7 Alpine for JWT token blacklisting
-- Session management and caching
-
-## API Usage Examples
-
-### Login
-```bash
-curl -X POST http://localhost:8080/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"username": "admin", "password": "admin123"}'
+```yaml
+# Add to your docker-compose.yml
+services:
+  auth-service:
+    image: your-registry/auth-service:latest
+    environment:
+      - DATABASE_URL=postgresql://user:pass@db:5432/auth
+      - REDIS_URL=redis://redis:6379
+    ports:
+      - "5000:5000"
 ```
 
-### Access Protected Endpoint
+**Result**: Get user management, OAuth, JWT auth "for free"!
+
+## 🚀 **Quick Start**
+
+### 1. Add to Your Project
+
 ```bash
-curl -X GET http://localhost:8080/api/v1/hello \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+# Clone this repository
+git clone https://github.com/your-org/auth-service.git
+cd auth-service
+
+# Start the services
+docker-compose up -d
 ```
 
-### Create User (Admin Only)
-```bash
-curl -X POST http://localhost:8080/api/v1/register \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"username": "newuser", "email": "user@example.com", "password": "password123"}'
+### 2. Integrate with Your App
+
+```python
+# Your application code
+import requests
+
+def login_user(username, password):
+    response = requests.post(
+        'http://localhost:5000/api/v1/auth/login',
+        json={'username': username, 'password': password}
+    )
+    return response.json()
+
+def validate_token(token):
+    headers = {'Authorization': f'Bearer {token}'}
+    response = requests.get(
+        'http://localhost:5000/api/v1/me',
+        headers=headers
+    )
+    return response.json()
 ```
 
-## Security Features
+### 3. Access Admin Interface
 
-- **JWT Tokens**: Secure authentication with configurable expiration
-- **Password Hashing**: bcrypt for secure password storage
-- **Token Blacklisting**: Redis-based token invalidation on logout
-- **Admin Authorization**: Role-based access control
-- **CORS Protection**: Configured for secure cross-origin requests
-- **Session Management**: Server-side session tracking
+- **URL**: http://localhost:8080
+- **Default Admin**: `admin` / `admin123`
 
-## Development
+## 🏗️ **Architecture**
+
+```
+┌─────────────────┐    ┌─────────────────┐
+│   Your App      │◄──►│   Auth Service  │
+│                 │    │                 │
+│ ┌─────────────┐ │    │ ┌─────────────┐ │
+│ │   Frontend  │ │    │ │   Backend   │ │
+│ └─────────────┘ │    │ └─────────────┘ │
+└─────────────────┘    └─────────────────┘
+         │                       │
+         │                       │
+         └───────────────────────┼───────────────────────┐
+                                 │                       │
+                    ┌─────────────────┐    ┌─────────────────┐
+                    │   PostgreSQL    │    │     Redis       │
+                    │   Database      │    │   (Sessions)    │
+                    └─────────────────┘    └─────────────────┘
+```
+
+## 📋 **Features**
+
+### ✅ **Core Authentication**
+- **User Registration & Login**
+- **JWT Token Management**
+- **Password Hashing** (bcrypt)
+- **Session Management**
+
+### ✅ **OAuth Integration**
+- **Google OAuth**
+- **GitHub OAuth**
+- **Extensible Provider System**
+
+### ✅ **Admin Interface**
+- **User Management**
+- **OAuth Provider Configuration**
+- **Session Monitoring**
+- **Audit Logging**
+
+### ✅ **API Endpoints**
+- **RESTful API Design**
+- **OpenAPI Documentation**
+- **Rate Limiting**
+- **CORS Support**
+
+## 🔧 **Configuration**
 
 ### Environment Variables
-- `DATABASE_URL`: PostgreSQL connection string
-- `REDIS_URL`: Redis connection string
-- `JWT_SECRET_KEY`: Secret key for JWT signing
-- `BACKEND_URL`: Backend API URL (for frontend)
 
-
-### Adding New Features
-1. Backend: Add routes in `backend/app/` package
-2. Frontend: Add templates in `frontend/templates/`
-3. Update docker-compose.yml if new services are needed
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Port conflicts**: Ensure ports 5000, 8000, 5432, and 6379 are available
-2. **Database connection**: Wait for PostgreSQL health check to pass
-3. **Redis connection**: Ensure Redis service is running
-4. **Permission issues**: Run with appropriate user permissions
-
-### Logs
 ```bash
-# View all service logs
-make logs
+# Database
+DATABASE_URL=postgresql://user:pass@host:5432/dbname
 
-# View specific service logs
-make logs backend
-make logs frontend
+# Redis (for sessions)
+REDIS_URL=redis://host:6379
+
+# Security
+SECRET_KEY=your-secret-key
+JWT_SECRET_KEY=your-jwt-secret
+
+# OAuth (optional)
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+GITHUB_CLIENT_ID=your-github-client-id
+GITHUB_CLIENT_SECRET=your-github-client-secret
 ```
 
-### Reset Database
-```bash
-# Stop services and remove volumes
-make clean
+### Docker Compose Integration
 
-# Restart services
-make start
+```yaml
+version: '3.8'
+
+services:
+  # Your existing services...
+  your-app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - AUTH_SERVICE_URL=http://auth-service:5000
+
+  # Add auth service
+  auth-service:
+    build: ./auth-service
+    environment:
+      - DATABASE_URL=postgresql://auth_user:auth_pass@postgres:5432/auth_db
+      - REDIS_URL=redis://redis:6379
+    ports:
+      - "5000:5000"
+    depends_on:
+      - postgres
+      - redis
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: auth_db
+      POSTGRES_USER: auth_user
+      POSTGRES_PASSWORD: auth_pass
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
 ```
 
-## Production Considerations
+## 📚 **API Documentation**
 
-- Change default passwords and secret keys
-- Use environment-specific configuration
-- Enable HTTPS/TLS
-- Configure proper logging
-- Set up monitoring and health checks
-- Use production-grade database and Redis instances
-- Implement rate limiting and security headers
+### Authentication Endpoints
 
-## License
+```http
+POST /api/v1/auth/login
+POST /api/v1/auth/logout
+POST /api/v1/auth/register
+GET  /api/v1/me
+```
 
-This project is for demonstration purposes. Please review and modify security settings before production use.
+### User Management
 
-<!-- The end. -->
+```http
+GET    /api/v1/users
+GET    /api/v1/users/{id}
+PUT    /api/v1/users/{id}
+DELETE /api/v1/users/{id}
+```
+
+### OAuth Endpoints
+
+```http
+GET /api/v1/auth/oauth/{provider}/authorize
+GET /api/v1/auth/oauth/{provider}/callback
+GET /api/v1/auth/oauth/providers
+```
+
+**Full API Documentation**: http://localhost:5000/docs
+
+## 🔐 **Security Features**
+
+- **JWT Token Authentication**
+- **Password Hashing** (bcrypt)
+- **Session Management**
+- **Rate Limiting**
+- **CORS Configuration**
+- **Audit Logging**
+- **Input Validation**
+
+## 🎨 **Customization**
+
+### Theming the Admin Interface
+
+```css
+:root {
+  --primary-color: #your-brand-color;
+  --secondary-color: #your-secondary-color;
+  --logo-url: url('/your-logo.png');
+}
+```
+
+### Custom OAuth Providers
+
+```python
+# Add custom OAuth providers
+class CustomOAuthProvider:
+    name = 'custom'
+    client_id = 'your-client-id'
+    client_secret = 'your-client-secret'
+    # ... implementation
+```
+
+## 📊 **Monitoring**
+
+### Health Checks
+
+```http
+GET /health
+```
+
+### Metrics
+
+- **User registration rates**
+- **Login success/failure rates**
+- **OAuth provider usage**
+- **API response times**
+
+## 🚀 **Deployment**
+
+### Production Checklist
+
+- [ ] **Change default secrets**
+- [ ] **Configure HTTPS**
+- [ ] **Set up monitoring**
+- [ ] **Configure backups**
+- [ ] **Set up logging**
+- [ ] **Configure OAuth providers**
+
+### Environment-Specific Configs
+
+```bash
+# Development
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+# Production
+docker-compose -f docker-compose.yml -f docker-compose.prod.yml up
+```
+
+## 🤝 **Contributing**
+
+1. **Fork the repository**
+2. **Create a feature branch**
+3. **Make your changes**
+4. **Add tests**
+5. **Submit a pull request**
+
+## 📄 **License**
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🆘 **Support**
+
+- **Documentation**: [docs/](docs/)
+- **Issues**: [GitHub Issues](https://github.com/your-org/auth-service/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/your-org/auth-service/discussions)
+
+## 🎯 **Roadmap**
+
+- [ ] **Multi-factor Authentication (MFA)**
+- [ ] **Single Sign-On (SSO)**
+- [ ] **Advanced Role-Based Access Control**
+- [ ] **API Key Management**
+- [ ] **Webhook System**
+- [ ] **Mobile SDKs**
+
+---
+
+**Get started in minutes, not months!** 🚀
+
+# The end.

@@ -3,6 +3,9 @@ Authentication Engine - A reusable authentication system for Flask applications.
 
 This package provides a modular, configurable authentication system that can be
 easily integrated into any Flask application.
+
+Author: Christopher O'Brien <obriencj@gmail.com>
+Assisted-By: Cursor AI (Claude Sonnet 4)
 """
 
 from .core import AuthEngine, AuthConfig

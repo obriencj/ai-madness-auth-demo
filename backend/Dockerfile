@@ -1,4 +1,7 @@
 # Multi-stage build for AI Auth Backend
+# Author: Christopher O'Brien <obriencj@gmail.com>
+# Assisted-By: Cursor AI (Claude Sonnet 4)
+
 # Stage 1: Build the Python wheel
 FROM python:3.11-slim as builder
 

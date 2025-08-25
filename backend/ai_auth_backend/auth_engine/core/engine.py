@@ -1,5 +1,8 @@
 """
 Main Authentication Engine class.
+
+Author: Christopher O'Brien <obriencj@gmail.com>
+Assisted-By: Cursor AI (Claude Sonnet 4)
 """
 
 from typing import Dict, Any, Optional
@@ -98,87 +101,52 @@ class AuthEngine:
     def _register_providers(self):
         """Register configured authentication providers."""
         for provider_name in self.config.providers:
-            if provider_name == 'password':
-                self.provider_registry.register('password', self._create_password_provider())
-            elif provider_name.startswith('oauth_'):
-                oauth_provider = provider_name.replace('oauth_', '')
-                self.provider_registry.register(
-                    provider_name, 
-                    self._create_oauth_provider(oauth_provider)
-                )
-    
-    def _create_password_provider(self):
-        """Create password authentication provider."""
-        from ..providers.password import PasswordProvider
-        return PasswordProvider(self.services['auth'])
-    
-    def _create_oauth_provider(self, provider_name: str):
-        """Create OAuth authentication provider."""
-        from ..providers.oauth import OAuthProvider
-        return OAuthProvider(provider_name, self.services['auth'])
+            try:
+                provider = self.provider_registry.get_provider(provider_name)
+                if provider:
+                    provider.register(self.app)
+            except Exception as e:
+                self.app.logger.error(f"Failed to register provider {provider_name}: {e}")
     
     def _setup_blueprints(self):
-        """Setup and register authentication blueprints."""
-        from ..api import create_auth_blueprint, create_oauth_blueprint
+        """Setup Flask blueprints for authentication routes."""
+        from ..api import auth_bp, oauth_bp, admin_bp
         
-        # Register core auth blueprint
-        auth_bp = create_auth_blueprint(self.services['auth'])
         self.app.register_blueprint(auth_bp, url_prefix='/api/v1/auth')
-        
-        # Register OAuth blueprint if enabled
-        if self.config.enable_oauth:
-            oauth_bp = create_oauth_blueprint(self.services['auth'])
-            self.app.register_blueprint(oauth_bp, url_prefix='/api/v1/auth/oauth')
-        
-        # Register admin blueprint if enabled
-        if self.config.enable_admin:
-            from ..api import create_admin_blueprint
-            admin_bp = create_admin_blueprint(self.services)
-            self.app.register_blueprint(admin_bp, url_prefix='/api/v1/admin')
+        self.app.register_blueprint(oauth_bp, url_prefix='/api/v1/auth/oauth')
+        self.app.register_blueprint(admin_bp, url_prefix='/api/v1/admin')
     
-    def get_service(self, service_name: str):
-        """Get service by name."""
-        return self.services.get(service_name)
+    def require_auth(self):
+        """Decorator to require authentication."""
+        from ..middleware import auth_required
+        return auth_required
     
-    def get_provider(self, provider_name: str):
-        """Get provider by name."""
-        return self.provider_registry.get(provider_name)
-    
-    def authenticate(self, provider: str, credentials: Dict[str, Any]) -> Dict[str, Any]:
-        """Authenticate using specified provider."""
-        auth_provider = self.get_provider(provider)
-        if not auth_provider:
-            raise ConfigurationError(f"Provider '{provider}' not found")
-        
-        return auth_provider.authenticate(credentials)
+    def require_permission(self, permission: str):
+        """Decorator to require specific permission."""
+        from ..middleware import permission_required
+        return permission_required(permission)
     
     def get_current_user(self):
         """Get current authenticated user."""
         from flask_jwt_extended import get_jwt_identity
+        from flask import current_app
+        
         username = get_jwt_identity()
         if username:
             return self.services['user'].get_user_by_username(username)
         return None
     
-    def require_auth(self, permission: Optional[str] = None):
-        """Decorator to require authentication and optionally specific permission."""
-        from flask_jwt_extended import jwt_required
-        from functools import wraps
-        
-        def decorator(f):
-            @wraps(f)
-            @jwt_required()
-            def decorated_function(*args, **kwargs):
-                user = self.get_current_user()
-                if not user:
-                    return {'error': 'User not found'}, 404
-                
-                if permission:
-                    self.services['user'].require_permission(user, permission)
-                
-                return f(*args, **kwargs)
-            return decorated_function
-        return decorator
+    def get_user_service(self):
+        """Get user service instance."""
+        return self.services['user']
+    
+    def get_session_service(self):
+        """Get session service instance."""
+        return self.services['session']
+    
+    def get_auth_service(self):
+        """Get authentication service instance."""
+        return self.services['auth']
 
 
 # The end.

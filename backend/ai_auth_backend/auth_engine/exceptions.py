@@ -1,5 +1,8 @@
 """
 Custom exceptions for the Authentication Engine.
+
+Author: Christopher O'Brien <obriencj@gmail.com>
+Assisted-By: Cursor AI (Claude Sonnet 4)
 """
 
 
@@ -8,18 +11,13 @@ class AuthError(Exception):
     pass
 
 
-class PermissionDenied(AuthError):
-    """Raised when a user doesn't have required permissions."""
-    pass
-
-
 class UserNotFound(AuthError):
     """Raised when a user cannot be found."""
     pass
 
 
-class ProviderError(AuthError):
-    """Raised when an authentication provider encounters an error."""
+class PermissionDenied(AuthError):
+    """Raised when a user lacks required permissions."""
     pass
 
 
@@ -28,8 +26,13 @@ class ConfigurationError(AuthError):
     pass
 
 
-class SessionError(AuthError):
-    """Raised when there's a session-related error."""
+class ValidationError(AuthError):
+    """Raised when input validation fails."""
+    pass
+
+
+class OAuthError(AuthError):
+    """Raised when OAuth operations fail."""
     pass
 
 

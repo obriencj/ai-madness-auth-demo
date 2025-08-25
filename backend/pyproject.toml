@@ -1,3 +1,7 @@
+# AI Auth Backend - Python Package Configuration
+# Author: Christopher O'Brien <obriencj@gmail.com>
+# Assisted-By: Cursor AI (Claude Sonnet 4)
+
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
@@ -9,7 +13,7 @@ description = "A self-hosted, open-source authentication service"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
-    {name = "AI Madness Team", email = "team@ai-madness.com"}
+    {name = "Christopher O'Brien", email = "obriencj@gmail.com"}
 ]
 keywords = ["authentication", "auth", "oauth", "jwt", "flask", "self-hosted"]
 classifiers = [

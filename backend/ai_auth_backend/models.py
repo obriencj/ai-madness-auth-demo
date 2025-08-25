@@ -3,6 +3,9 @@ Database models for the AI Auth Backend.
 
 This module contains all SQLAlchemy model definitions and database-related 
 functionality.
+
+Author: Christopher O'Brien <obriencj@gmail.com>
+Assisted-By: Cursor AI (Claude Sonnet 4)
 """
 
 import bcrypt

@@ -1,5 +1,8 @@
 """
 Main Flask application factory for the AI Auth Backend.
+
+Author: Christopher O'Brien <obriencj@gmail.com>
+Assisted-By: Cursor AI (Claude Sonnet 4)
 """
 
 import os

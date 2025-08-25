@@ -1,5 +1,8 @@
 """
 Service layer for the Authentication Engine.
+
+Author: Christopher O'Brien <obriencj@gmail.com>
+Assisted-By: Cursor AI (Claude Sonnet 4)
 """
 
 from typing import Optional, Dict, Any, List
