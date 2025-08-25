@@ -82,31 +82,14 @@ The project includes a Makefile for easy management:
    - Username: `admin`
    - Password: `admin123`
 
-## OAuth Setup
-
-The application supports OAuth authentication with Google and GitHub. To enable OAuth:
-
-1. **Set up OAuth applications** in Google Cloud Console and GitHub Developer Settings
-2. **Configure environment variables** with your OAuth client IDs and secrets
-3. **Run the OAuth database migration** to create required tables
-4. **Restart the application** to load OAuth configuration
-
-For detailed setup instructions, see [OAUTH_SETUP.md](OAUTH_SETUP.md).
-
 ### OAuth Provider Management
 
-All OAuth provider configuration is now stored in the database, including:
+OAuth provider configuration is stored in the database, including:
 - Client ID and Secret
 - Authorization, Token, and User Info URLs
-- **Scope values** (newly added)
+- Scope values
 - Active status
 
-**Migration Note**: If you have an existing database, run the scope migration script:
-```bash
-python migrate_scope.py
-```
-
-This will add the scope field to existing oauth_provider tables and set appropriate default values.
 
 ## Service Details
 
@@ -182,10 +165,7 @@ curl -X POST http://localhost:8080/api/v1/register \
 - `REDIS_URL`: Redis connection string
 - `JWT_SECRET_KEY`: Secret key for JWT signing
 - `BACKEND_URL`: Backend API URL (for frontend)
-- `GOOGLE_CLIENT_ID`: Google OAuth client ID
-- `GOOGLE_CLIENT_SECRET`: Google OAuth client secret
-- `GITHUB_CLIENT_ID`: GitHub OAuth client ID
-- `GITHUB_CLIENT_SECRET`: GitHub OAuth client secret
+
 
 ### Adding New Features
 1. Backend: Add routes in `backend/app.py`
@@ -233,3 +213,5 @@ make start
 ## License
 
 This project is for demonstration purposes. Please review and modify security settings before production use.
+
+<!-- The end. -->

@@ -58,3 +58,5 @@ INSERT INTO oauth_provider (name, client_id, client_secret, authorize_url, token
     'read:user user:email',
     FALSE
 ) ON CONFLICT (name) DO NOTHING;
+
+-- The end.

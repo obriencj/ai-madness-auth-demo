@@ -27,3 +27,5 @@ CREATE INDEX IF NOT EXISTS idx_user_username ON "user"(username);
 
 -- Create index on email for faster lookups
 CREATE INDEX IF NOT EXISTS idx_user_email ON "user"(email);
+
+-- The end.
