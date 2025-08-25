@@ -8,10 +8,9 @@ import os
 from flask import Flask
 from flask_jwt_extended import JWTManager
 from auth_engine import AuthEngine, AuthConfig
-from auth_engine.models import User, OAuthProvider, OAuthAccount, JWTSession
 
-# Import the existing database instance
-from .model import db
+# Import the existing database instance and models
+from .model import db, User, OAuthProvider, OAuthAccount, JWTSession
 
 
 def create_app():
