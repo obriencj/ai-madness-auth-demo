@@ -64,10 +64,16 @@ class AuthEngine:
         if not user_model:
             raise ConfigurationError("User model not configured in app")
         
+        # Get database instance from app
+        db = getattr(self.app, 'db', None)
+        if not db:
+            raise ConfigurationError("Database instance not configured in app")
+        
         # Initialize services
-        self.services['user'] = UserService(user_model, oauth_account_model)
+        self.services['user'] = UserService(user_model, oauth_account_model, db)
         self.services['session'] = SessionService(
             session_model, 
+            db,
             self._get_redis_client()
         )
         self.services['auth'] = AuthenticationService(

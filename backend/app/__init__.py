@@ -40,6 +40,9 @@ def create_app():
     app.oauth_account_model = OAuthAccount
     app.session_model = JWTSession
     
+    # Set database instance for the auth engine
+    app.db = db
+    
     # Configure authentication engine
     auth_config = AuthConfig({
         'providers': ['password', 'oauth_google', 'oauth_github'],

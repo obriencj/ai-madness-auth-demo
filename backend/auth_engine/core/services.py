@@ -4,7 +4,7 @@ Service layer for the Authentication Engine.
 
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
-from flask import current_app, request
+from flask import request
 from flask_jwt_extended import create_access_token, decode_token
 
 from ..exceptions import AuthError, UserNotFound, PermissionDenied
@@ -79,11 +79,10 @@ class AuthenticationService:
 class UserService:
     """Service for handling user operations."""
     
-    def __init__(self, user_model, oauth_account_model):
+    def __init__(self, user_model, oauth_account_model, db):
         self.user_model = user_model
         self.oauth_account_model = oauth_account_model
-        # Get the database instance from the user model
-        self.db = user_model.__table__.metadata.bind
+        self.db = db
     
     def get_user_by_id(self, user_id: Any) -> Optional[Any]:
         """Get user by ID."""
@@ -200,11 +199,10 @@ class UserService:
 class SessionService:
     """Service for handling session operations."""
     
-    def __init__(self, session_model, redis_client=None):
+    def __init__(self, session_model, db, redis_client=None):
         self.session_model = session_model
+        self.db = db
         self.redis_client = redis_client
-        # Get the database instance from the session model
-        self.db = session_model.__table__.metadata.bind
     
     def create_session(self, jti: str, user_id: Any, auth_method: str, 
                       ip_address: Optional[str] = None, 
@@ -245,7 +243,7 @@ class SessionService:
     def get_active_sessions(self, user_id: Optional[Any] = None) -> List[Any]:
         """Get active sessions, optionally filtered by user."""
         query = self.session_model.query.filter(
-            self.session_model.is_active == True,
+            self.session_model.is_active.is_(True),
             self.session_model.expires_at > datetime.utcnow()
         )
         
