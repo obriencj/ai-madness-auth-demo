@@ -3,6 +3,7 @@ import requests
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from functools import wraps
 
+
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-change-in-production')
 
@@ -15,11 +16,12 @@ def inject_user():
     if 'access_token' in session:
         # Use session data for template context to avoid circular imports
         return {
-            'current_user': session.get('user'), 
+            'current_user': session.get('user'),
             'is_authenticated': True
         }
-    
+
     return {'current_user': None, 'is_authenticated': False}
+
 
 # OAuth Provider Display Configuration
 OAUTH_PROVIDER_DISPLAY = {
@@ -35,15 +37,16 @@ OAUTH_PROVIDER_DISPLAY = {
     }
 }
 
+
 def validate_jwt_token():
     """Validate JWT token with backend and return user info if valid"""
     if 'access_token' not in session:
         return None
-    
+
     try:
         headers = {'Authorization': f'Bearer {session["access_token"]}'}
         response = requests.get(f'{BACKEND_URL}/api/v1/me', headers=headers)
-        
+
         if response.status_code == 200:
             data = response.json()
             # Update session with fresh user data
@@ -64,7 +67,7 @@ def login_required(f):
     def decorated_function(*args, **kwargs):
         if 'access_token' not in session:
             return redirect(url_for('login'))
-        
+
         # Validate JWT token with backend
         user = validate_jwt_token()
         if not user:
@@ -72,7 +75,7 @@ def login_required(f):
             session.clear()
             flash('Your session has expired. Please log in again.', 'error')
             return redirect(url_for('login'))
-        
+
         return f(*args, **kwargs)
     return decorated_function
 
@@ -83,7 +86,7 @@ def admin_required(f):
         if 'access_token' not in session:
             print("Admin required: No access token in session")
             return redirect(url_for('login'))
-        
+
         # Validate JWT token with backend
         user = validate_jwt_token()
         if not user:
@@ -91,15 +94,16 @@ def admin_required(f):
             session.clear()
             flash('Your session has expired. Please log in again.', 'error')
             return redirect(url_for('login'))
-        
+
         if not user.get('is_admin'):
             print(f"Admin required: User is not admin. User: {user}")
             flash('Admin privileges required', 'error')
             return redirect(url_for('dashboard'))
-        
+
         print(f"Admin required: User is admin, proceeding")
         return f(*args, **kwargs)
     return decorated_function
+
 
 @app.route('/')
 def index():
@@ -107,18 +111,19 @@ def index():
         return redirect(url_for('dashboard'))
     return redirect(url_for('login'))
 
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-        
+
         try:
             response = requests.post(
                 f'{BACKEND_URL}/api/v1/auth/login',
                 json={'username': username, 'password': password}
             )
-            
+
             if response.status_code == 200:
                 data = response.json()
                 session['access_token'] = data['access_token']
@@ -130,7 +135,7 @@ def login():
                 flash('Invalid credentials', 'error')
         except requests.RequestException:
             flash('Connection error', 'error')
-    
+
     # Get OAuth providers from backend
     try:
         response = requests.get(f'{BACKEND_URL}/api/v1/auth/oauth/providers')
@@ -145,25 +150,26 @@ def login():
     except requests.RequestException as e:
         oauth_providers = []
         print(f"Login: Connection error loading OAuth providers: {e}")
-    
+
     return render_template('login.html', oauth_providers=oauth_providers)
+
 
 @app.route('/api/validate-session')
 def validate_session():
     """AJAX endpoint to validate JWT session"""
     if 'access_token' not in session:
         return jsonify({'valid': False, 'message': 'No session found'}), 401
-    
+
     user = validate_jwt_token()
     if user:
         return jsonify({
-            'valid': True, 
+            'valid': True,
             'user': user,
             'message': 'Session is valid'
         }), 200
     else:
         return jsonify({
-            'valid': False, 
+            'valid': False,
             'message': 'Session has expired'
         }), 401
 
@@ -176,15 +182,17 @@ def logout():
             requests.post(f'{BACKEND_URL}/api/v1/auth/logout', headers=headers)
         except requests.RequestException:
             pass
-    
+
     session.clear()
     flash('Logged out successfully', 'success')
     return redirect(url_for('login'))
+
 
 @app.route('/dashboard')
 @login_required
 def dashboard():
     return render_template('dashboard.html')
+
 
 @app.route('/admin')
 @admin_required
@@ -194,11 +202,11 @@ def admin():
         print(f"Admin route: Making request to {BACKEND_URL}/api/v1/users")
         response = requests.get(f'{BACKEND_URL}/api/v1/users', headers=headers)
         print(f"Admin route: Response status: {response.status_code}")
-        
+
         if response.status_code == 200:
             users = response.json()['users']
             print(f"Admin route: Loaded {len(users)} users")
-            
+
             # Fetch OAuth account information for each user
             for user in users:
                 try:
@@ -229,24 +237,9 @@ def admin():
         users = []
         flash(f'Connection error: {str(e)}', 'error')
         print(f"Admin route: Connection error - {str(e)}")
-    
+
     return render_template('admin.html', users=users)
 
-@app.route('/hello')
-@login_required
-def hello():
-    try:
-        headers = {'Authorization': f'Bearer {session["access_token"]}'}
-        response = requests.get(f'{BACKEND_URL}/api/v1/hello', headers=headers)
-        
-        if response.status_code == 200:
-            message = response.json()['message']
-        else:
-            message = f'Error fetching message: {response.status_code}'
-    except requests.RequestException:
-        message = 'Connection error'
-    
-    return render_template('hello.html', message=message)
 
 @app.route('/api/users', methods=['POST'])
 @admin_required
@@ -257,12 +250,12 @@ def create_user():
         'password': request.form.get('password'),
         'is_admin': request.form.get('is_admin') == 'on'
     }
-    
+
     try:
         headers = {'Authorization': f'Bearer {session["access_token"]}'}
-        response = requests.post(f'{BACKEND_URL}/api/v1/register', 
+        response = requests.post(f'{BACKEND_URL}/api/v1/register',
                                json=data, headers=headers)
-        
+
         if response.status_code == 201:
             flash('User created successfully', 'success')
         else:
@@ -270,7 +263,7 @@ def create_user():
             flash(f'Error: {error_data.get("error", "Unknown error")}', 'error')
     except requests.RequestException:
         flash('Connection error', 'error')
-    
+
     return redirect(url_for('admin'))
 
 
@@ -282,18 +275,18 @@ def update_user(user_id):
         'is_admin': request.form.get('is_admin') == 'on',
         'is_active': request.form.get('is_active') == 'on'
     }
-    
+
     password = request.form.get('password')
     if password:
         data['password'] = password
-    
+
     try:
         headers = {'Authorization': f'Bearer {session["access_token"]}'}
         response = requests.put(
             f'{BACKEND_URL}/api/v1/users/{user_id}',
             json=data, headers=headers
         )
-        
+
         if response.status_code == 200:
             flash('User updated successfully', 'success')
         else:
@@ -301,7 +294,7 @@ def update_user(user_id):
             flash(f'Error: {error_data.get("error", "Unknown error")}', 'error')
     except requests.RequestException:
         flash('Connection error', 'error')
-    
+
     return redirect(url_for('admin'))
 
 
@@ -315,7 +308,7 @@ def admin_remove_user_oauth_account(user_id, oauth_account_id):
             f'{BACKEND_URL}/api/v1/users/{user_id}/oauth-accounts/{oauth_account_id}',
             headers=headers
         )
-        
+
         if response.status_code == 200:
             flash('OAuth account removed successfully', 'success')
         else:
@@ -323,7 +316,7 @@ def admin_remove_user_oauth_account(user_id, oauth_account_id):
             flash(f'Error: {error_data.get("error", "Unknown error")}', 'error')
     except requests.RequestException:
         flash('Connection error', 'error')
-    
+
     return redirect(url_for('admin'))
 
 
@@ -337,7 +330,7 @@ def oauth_providers():
             f'{BACKEND_URL}/api/v1/admin/oauth-providers',
             headers=headers
         )
-        
+
         if response.status_code == 200:
             providers_data = response.json()
             return render_template('oauth_providers.html', providers=providers_data['providers'])
@@ -363,14 +356,14 @@ def create_oauth_provider():
         'scope': request.form.get('scope'),
         'is_active': request.form.get('is_active') == 'on'
     }
-    
+
     try:
         headers = {'Authorization': f'Bearer {session["access_token"]}'}
         response = requests.post(
             f'{BACKEND_URL}/api/v1/admin/oauth-providers',
             json=data, headers=headers
         )
-        
+
         if response.status_code == 201:
             flash('OAuth provider created successfully', 'success')
         else:
@@ -378,7 +371,7 @@ def create_oauth_provider():
             flash(f'Error: {error_data.get("error", "Unknown error")}', 'error')
     except requests.RequestException:
         flash('Connection error', 'error')
-    
+
     return redirect(url_for('oauth_providers'))
 
 
@@ -395,19 +388,19 @@ def update_oauth_provider(provider_id):
         'scope': request.form.get('scope'),
         'is_active': request.form.get('is_active') == 'on'
     }
-    
+
     # Only include client_secret if it's provided (to avoid overwriting with empty string)
     client_secret = request.form.get('client_secret')
     if client_secret:
         data['client_secret'] = client_secret
-    
+
     try:
         headers = {'Authorization': f'Bearer {session["access_token"]}'}
         response = requests.put(
             f'{BACKEND_URL}/api/v1/admin/oauth-providers/{provider_id}',
             json=data, headers=headers
         )
-        
+
         if response.status_code == 200:
             flash('OAuth provider updated successfully', 'success')
         else:
@@ -415,7 +408,7 @@ def update_oauth_provider(provider_id):
             flash(f'Error: {error_data.get("error", "Unknown error")}', 'error')
     except requests.RequestException:
         flash('Connection error', 'error')
-    
+
     return redirect(url_for('oauth_providers'))
 
 
@@ -429,7 +422,7 @@ def delete_oauth_provider(provider_id):
             f'{BACKEND_URL}/api/v1/admin/oauth-providers/{provider_id}',
             headers=headers
         )
-        
+
         if response.status_code == 200:
             flash('OAuth provider deleted successfully', 'success')
         else:
@@ -437,7 +430,7 @@ def delete_oauth_provider(provider_id):
             flash(f'Error: {error_data.get("error", "Unknown error")}', 'error')
     except requests.RequestException:
         flash('Connection error', 'error')
-    
+
     return redirect(url_for('oauth_providers'))
 
 
@@ -451,7 +444,7 @@ def jwt_sessions():
             f'{BACKEND_URL}/api/v1/admin/sessions',
             headers=headers
         )
-        
+
         if response.status_code == 200:
             sessions_data = response.json()
             return render_template('jwt_sessions.html', sessions=sessions_data['sessions'])
@@ -473,7 +466,7 @@ def expire_session(session_id):
             f'{BACKEND_URL}/api/v1/admin/sessions/{session_id}/expire',
             headers=headers
         )
-        
+
         if response.status_code == 200:
             return jsonify({'message': 'Session expired successfully'}), 200
         else:
@@ -493,7 +486,7 @@ def expire_all_sessions():
             f'{BACKEND_URL}/api/v1/admin/sessions/expire-all',
             headers=headers
         )
-        
+
         if response.status_code == 200:
             return jsonify({'message': 'All sessions expired successfully'}), 200
         else:
@@ -522,16 +515,16 @@ def oauth_login(provider):
     except requests.RequestException:
         flash('Connection error', 'error')
         return redirect(url_for('login'))
-    
+
     # Build redirect URI for OAuth callback
     redirect_uri = url_for('oauth_callback', provider=provider, _external=True)
-    
+
     try:
         response = requests.get(
             f'{BACKEND_URL}/api/v1/auth/oauth/{provider}/authorize',
             params={'redirect_uri': redirect_uri}
         )
-        
+
         if response.status_code == 200:
             auth_data = response.json()
             return redirect(auth_data['authorization_url'])
@@ -561,27 +554,27 @@ def oauth_callback(provider):
     except requests.RequestException:
         flash('Connection error', 'error')
         return redirect(url_for('login'))
-    
+
     code = request.args.get('code')
     error = request.args.get('error')
-    
+
     if error:
         flash(f'OAuth error: {error}', 'error')
         return redirect(url_for('login'))
-    
+
     if not code:
         flash('Missing authorization code', 'error')
         return redirect(url_for('login'))
-    
+
     # Build redirect URI for OAuth callback
     redirect_uri = url_for('oauth_callback', provider=provider, _external=True)
-    
+
     try:
         response = requests.get(
             f'{BACKEND_URL}/api/v1/auth/oauth/{provider}/callback',
             params={'code': code, 'redirect_uri': redirect_uri}
         )
-        
+
         if response.status_code == 200:
             data = response.json()
             session['access_token'] = data['access_token']
@@ -606,15 +599,15 @@ def register():
         email = request.form.get('email')
         password = request.form.get('password')
         confirm_password = request.form.get('confirm_password')
-        
+
         if not all([username, email, password, confirm_password]):
             flash('All fields are required', 'error')
             return render_template('register.html')
-        
+
         if password != confirm_password:
             flash('Passwords do not match', 'error')
             return render_template('register.html')
-        
+
         try:
             response = requests.post(
                 f'{BACKEND_URL}/api/v1/auth/register',
@@ -624,7 +617,7 @@ def register():
                     'password': password
                 }
             )
-            
+
             if response.status_code == 201:
                 data = response.json()
                 session['access_token'] = data['access_token']
@@ -637,7 +630,7 @@ def register():
                 flash(f'Registration error: {error_data.get("error", "Unknown error")}', 'error')
         except requests.RequestException:
             flash('Connection error', 'error')
-    
+
     # Get OAuth providers from backend
     try:
         response = requests.get(f'{BACKEND_URL}/api/v1/auth/oauth/providers')
@@ -652,7 +645,7 @@ def register():
     except requests.RequestException as e:
         oauth_providers = []
         print(f"Register: Connection error loading OAuth providers: {e}")
-    
+
     return render_template('register.html', oauth_providers=oauth_providers)
 
 
@@ -662,16 +655,16 @@ def account():
     """User account management page"""
     try:
         headers = {'Authorization': f'Bearer {session["access_token"]}'}
-        
+
         # Get user account information
         response = requests.get(
             f'{BACKEND_URL}/api/v1/auth/account',
             headers=headers
         )
-        
+
         if response.status_code == 200:
             account_data = response.json()
-            
+
             # Get available OAuth providers for linking
             oauth_response = requests.get(f'{BACKEND_URL}/api/v1/auth/oauth/providers')
             if oauth_response.status_code == 200:
@@ -681,8 +674,8 @@ def account():
                 available_providers = [p for p in available_providers if p['name'] not in connected_providers]
             else:
                 available_providers = []
-            
-            return render_template('account.html', 
+
+            return render_template('account.html',
                                 account=account_data['user'],
                                 available_oauth_providers=available_providers)
         else:
@@ -700,18 +693,18 @@ def update_account():
     data = {
         'email': request.form.get('email')
     }
-    
+
     password = request.form.get('password')
     if password:
         data['password'] = password
-    
+
     try:
         headers = {'Authorization': f'Bearer {session["access_token"]}'}
         response = requests.put(
             f'{BACKEND_URL}/api/v1/auth/account',
             json=data, headers=headers
         )
-        
+
         if response.status_code == 200:
             flash('Account updated successfully', 'success')
             # Update session data
@@ -721,7 +714,7 @@ def update_account():
             flash(f'Error: {error_data.get("error", "Unknown error")}', 'error')
     except requests.RequestException:
         flash('Connection error', 'error')
-    
+
     return redirect(url_for('account'))
 
 
@@ -735,7 +728,7 @@ def remove_oauth_account(oauth_account_id):
             f'{BACKEND_URL}/api/v1/auth/account/oauth/{oauth_account_id}',
             headers=headers
         )
-        
+
         if response.status_code == 200:
             flash('OAuth account removed successfully', 'success')
         else:
@@ -743,7 +736,7 @@ def remove_oauth_account(oauth_account_id):
             flash(f'Error: {error_data.get("error", "Unknown error")}', 'error')
     except requests.RequestException:
         flash('Connection error', 'error')
-    
+
     return redirect(url_for('account'))
 
 
@@ -763,7 +756,7 @@ def link_oauth_account(provider):
         else:
             flash('Failed to load OAuth providers', 'error')
             return redirect(url_for('account'))
-        
+
         # Check if user already has this provider connected
         headers = {'Authorization': f'Bearer {session["access_token"]}'}
         account_response = requests.get(f'{BACKEND_URL}/api/v1/auth/account', headers=headers)
@@ -773,16 +766,16 @@ def link_oauth_account(provider):
             if provider in connected_providers:
                 flash(f'You already have {provider.title()} connected to your account', 'info')
                 return redirect(url_for('account'))
-        
+
         # Build redirect URI for OAuth linking callback
         redirect_uri = url_for('link_oauth_callback', provider=provider, _external=True)
-        
+
         # Initiate OAuth linking
         response = requests.get(
             f'{BACKEND_URL}/api/v1/auth/oauth/{provider}/authorize',
             params={'redirect_uri': redirect_uri}
         )
-        
+
         if response.status_code == 200:
             auth_data = response.json()
             return redirect(auth_data['authorization_url'])
@@ -800,18 +793,18 @@ def link_oauth_callback(provider):
     """Handle OAuth linking callback"""
     code = request.args.get('code')
     error = request.args.get('error')
-    
+
     if error:
         flash(f'OAuth linking error: {error}', 'error')
         return redirect(url_for('account'))
-    
+
     if not code:
         flash('Missing authorization code', 'error')
         return redirect(url_for('account'))
-    
+
     # Build redirect URI for OAuth linking callback
     redirect_uri = url_for('link_oauth_callback', provider=provider, _external=True)
-    
+
     try:
         headers = {'Authorization': f'Bearer {session["access_token"]}'}
         response = requests.get(
@@ -819,7 +812,7 @@ def link_oauth_callback(provider):
             params={'code': code, 'redirect_uri': redirect_uri},
             headers=headers
         )
-        
+
         if response.status_code == 200:
             flash(f'Successfully linked {provider.title()} to your account!', 'success')
         else:
@@ -827,12 +820,8 @@ def link_oauth_callback(provider):
             flash(f'OAuth linking error: {error_data.get("error", "Unknown error")}', 'error')
     except requests.RequestException:
         flash('Connection error', 'error')
-    
+
     return redirect(url_for('account'))
 
-
-# Application entry point for Gunicorn
-# if __name__ == '__main__':
-#     app.run(host='0.0.0.0', port=8000, debug=True)
 
 # The end.
