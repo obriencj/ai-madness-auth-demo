@@ -60,13 +60,6 @@ def create_app():
     # Store auth engine in app context for easy access
     app.auth_engine = auth_engine
     
-    # Add the /hello endpoint as requested
-    @app.route('/api/v1/hello', methods=['GET'])
-    @auth_engine.require_auth()
-    def hello():
-        """Protected endpoint requiring authentication."""
-        return {'message': 'hello world'}, 200
-    
     # Add /me endpoint for frontend session validation
     @app.route('/api/v1/me', methods=['GET'])
     @auth_engine.require_auth()

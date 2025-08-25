@@ -1,6 +1,7 @@
 version: '3.8'
 
 services:
+  # PostgreSQL Database
   postgres:
     image: postgres:15
     environment:
@@ -8,58 +9,100 @@ services:
       POSTGRES_USER: auth_user
       POSTGRES_PASSWORD: auth_password
     volumes:
-      - postgres_data:/var/lib/postgresql/data:Z
-      - ./init:/docker-entrypoint-initdb.d:Z
-    expose:
-      - "5432"
+      - postgres_data:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U auth_user -d auth_demo"]
       interval: 10s
       timeout: 5s
       retries: 5
 
+  # Redis Cache
   redis:
     image: redis:7-alpine
-    expose:
-      - "6379"
+    ports:
+      - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
 
+  # Authentication Service Backend
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    build: ./backend
     environment:
       - DATABASE_URL=postgresql://auth_user:auth_password@postgres:5432/auth_demo
       - REDIS_URL=redis://redis:6379
+      - SECRET_KEY=your-super-secret-key-change-in-production
       - JWT_SECRET_KEY=your-super-secret-jwt-key-change-in-production
+    ports:
+      - "5000:5000"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/v1/me"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
+  # Authentication Service Frontend (Admin Interface)
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+    build: ./frontend
     environment:
       - BACKEND_URL=http://backend:5000
-    depends_on:
-      - backend
-
-  nginx:
-    build:
-      context: ./nginx
-      dockerfile: Dockerfile
+      - SECRET_KEY=your-secret-key-change-in-production
     ports:
-      - "8080:80"
+      - "8080:5000"
     depends_on:
-      - frontend
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Demo Application
+  demo:
+    build: ./demo
+    environment:
+      - AUTH_SERVICE_URL=http://backend:5000
+      - DEMO_API_KEY=demo-api-key
+      - SECRET_KEY=demo-secret-key-change-in-production
+    ports:
+      - "5001:5001"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Nginx Reverse Proxy
+  nginx:
+    build: ./nginx
+    ports:
+      - "80:80"
+    depends_on:
       - backend
+      - frontend
+      - demo
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 volumes:
   postgres_data:
