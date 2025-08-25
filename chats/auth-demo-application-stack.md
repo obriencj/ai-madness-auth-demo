@@ -36,7 +36,7 @@ The user requested a complete application stack demonstrating Redis and JWT auth
 - `docker-compose.yml` - Multi-service orchestration
 - `backend/requirements.txt` - Python dependencies
 - `backend/Dockerfile` - Backend container configuration
-- `backend/app.py` - Main Flask backend application
+- `backend/app/` - Backend Python package
 - `frontend/requirements.txt` - Frontend dependencies
 - `frontend/Dockerfile` - Frontend container configuration
 - `frontend/app.py` - Main Flask frontend application
@@ -124,7 +124,7 @@ The user requested a complete application stack demonstrating Redis and JWT auth
 - `frontend/requirements.txt` - Added gunicorn dependency
 - `backend/Dockerfile` - Updated to use gunicorn command
 - `frontend/Dockerfile` - Updated to use gunicorn command
-- `backend/app.py` - Removed development server code
+- `backend/app/` - Removed development server code
 - `frontend/app.py` - Removed development server code
 - `docker-compose.yml` - Removed development environment variables
 
@@ -164,7 +164,7 @@ The user requested a complete application stack demonstrating Redis and JWT auth
 - **Solution**: Change JWT identity to use username for all endpoints
 
 **Files Modified:**
-- `backend/app.py` - JWT configuration and identity fixes
+- `backend/app/` - JWT configuration and identity fixes
 - Added comprehensive JWT error handlers with debugging
 - Fixed JWT token creation to use username instead of user ID
 - Updated all protected endpoints to use username-based user lookup
@@ -218,11 +218,9 @@ The user requested a complete application stack demonstrating Redis and JWT auth
 - `frontend/templates/register.html` - User registration template
 - `frontend/templates/account.html` - Account management template
 - `frontend/templates/oauth_providers.html` - OAuth provider management template
-- `OAUTH_SETUP.md` - Comprehensive OAuth configuration guide
-- `setup_oauth.py` - OAuth provider configuration script
 
 **Files Modified:**
-- `backend/app.py` - Added OAuth models, routes, and account management
+- `backend/app/` - Added OAuth models, routes, and account management
 - `frontend/app.py` - Added OAuth routes and account management
 - `backend/requirements.txt` - Added OAuth dependencies
 - `frontend/requirements.txt` - Added HTTP client dependency
@@ -230,7 +228,7 @@ The user requested a complete application stack demonstrating Redis and JWT auth
 - `frontend/templates/admin.html` - Enhanced with OAuth management
 - `frontend/templates/base.html` - Added navigation and Font Awesome icons
 - `frontend/templates/dashboard.html` - Added account management link
-- `Makefile` - Added OAuth setup commands
+- `Makefile` - Added OAuth management commands
 - `README.md` - Updated with OAuth features
 
 **New Backend API Endpoints:**
@@ -300,8 +298,7 @@ The user requested a complete application stack demonstrating Redis and JWT auth
 - **Setup Scripts**: Automated OAuth provider configuration
 
 **Makefile Commands Added:**
-- `make oauth-migrate` - Run OAuth database migration
-- `make oauth-setup` - Configure OAuth providers
+- OAuth provider management through web interface
 
 **Benefits of OAuth Integration:**
 - **User Convenience**: Multiple login options reduce friction
@@ -448,15 +445,13 @@ make start
 - `make logs` - View logs
 - `make status` - Service status
 - `make clean` - Complete cleanup
-- **`make oauth-migrate` - Run OAuth database migration**
-- **`make oauth-setup` - Configure OAuth providers**
 
 ### OAuth Setup:
 1. **Set up OAuth applications** in Google Cloud Console and GitHub
 2. **Configure environment variables** with your OAuth credentials
-3. **Run the migration**: `make oauth-migrate`
-4. **Configure providers**: `make oauth-setup`
-5. **Restart the application**: `make restart`
+3. **Start the application**: `make start`
+4. **Access OAuth management**: Admin → OAuth Providers
+5. **Configure providers** through the web interface
 
 ### OAuth Management:
 - **Access OAuth Providers**: Admin → OAuth Providers

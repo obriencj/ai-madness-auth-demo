@@ -67,7 +67,4 @@ clean:
 	$(COMPOSE_CMD) down -v --remove-orphans
 	@echo "Cleanup completed!"
 
-	PGPASSWORD=auth_password psql -h localhost -U auth_user -d auth_demo -f init/02-oauth-support.sql
-	@echo "OAuth migration completed!"
-
 # The end.

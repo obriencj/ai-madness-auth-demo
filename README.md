@@ -168,7 +168,7 @@ curl -X POST http://localhost:8080/api/v1/register \
 
 
 ### Adding New Features
-1. Backend: Add routes in `backend/app.py`
+1. Backend: Add routes in `backend/app/` package
 2. Frontend: Add templates in `frontend/templates/`
 3. Update docker-compose.yml if new services are needed
 
