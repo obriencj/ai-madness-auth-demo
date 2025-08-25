@@ -36,7 +36,7 @@ The user requested a complete application stack demonstrating Redis and JWT auth
 - `docker-compose.yml` - Multi-service orchestration
 - `backend/requirements.txt` - Python dependencies
 - `backend/Dockerfile` - Backend container configuration
-- `backend/app.py` - Main Flask backend application
+- `backend/app/` - Backend Python package
 - `frontend/requirements.txt` - Frontend dependencies
 - `frontend/Dockerfile` - Frontend container configuration
 - `frontend/app.py` - Main Flask frontend application
@@ -124,7 +124,7 @@ The user requested a complete application stack demonstrating Redis and JWT auth
 - `frontend/requirements.txt` - Added gunicorn dependency
 - `backend/Dockerfile` - Updated to use gunicorn command
 - `frontend/Dockerfile` - Updated to use gunicorn command
-- `backend/app.py` - Removed development server code
+- `backend/app/` - Removed development server code
 - `frontend/app.py` - Removed development server code
 - `docker-compose.yml` - Removed development environment variables
 
@@ -164,7 +164,7 @@ The user requested a complete application stack demonstrating Redis and JWT auth
 - **Solution**: Change JWT identity to use username for all endpoints
 
 **Files Modified:**
-- `backend/app.py` - JWT configuration and identity fixes
+- `backend/app/` - JWT configuration and identity fixes
 - Added comprehensive JWT error handlers with debugging
 - Fixed JWT token creation to use username instead of user ID
 - Updated all protected endpoints to use username-based user lookup
@@ -187,6 +187,126 @@ The user requested a complete application stack demonstrating Redis and JWT auth
 - Better error handling and debugging
 - Proper JWT validation with string identities
 
+### Phase 8: OAuth Provider Integration and Account Management
+
+**User Request:** Add comprehensive OAuth provider support with user self-registration and account management
+
+**Major Features Implemented:**
+
+#### **OAuth Authentication System**
+- **Google OAuth Integration**: Complete OAuth 2.0 flow for Google authentication
+- **GitHub OAuth Integration**: Complete OAuth 2.0 flow for GitHub authentication
+- **Configurable Providers**: Database-driven OAuth provider configuration
+- **User Self-Registration**: New users can register themselves via OAuth or traditional forms
+- **OAuth Account Linking**: Users can connect multiple OAuth providers to their accounts
+
+#### **Account Management System**
+- **User Account Page**: Comprehensive account management interface
+- **Profile Editing**: Users can update email and change passwords
+- **OAuth Account Management**: View and remove connected OAuth accounts
+- **Authentication Method Overview**: Visual display of available auth methods
+- **Safety Warnings**: Prevents users from locking themselves out
+
+#### **Enhanced Admin Dashboard**
+- **OAuth Provider Management**: Full CRUD operations for OAuth providers
+- **User OAuth Overview**: Visual indicators of user authentication methods
+- **OAuth Account Administration**: Admins can manage OAuth accounts across users
+- **Provider Configuration**: Web interface for OAuth provider setup
+
+**Files Created:**
+- `init/02-oauth-support.sql` - OAuth database schema migration
+- `frontend/templates/register.html` - User registration template
+- `frontend/templates/account.html` - Account management template
+- `frontend/templates/oauth_providers.html` - OAuth provider management template
+
+**Files Modified:**
+- `backend/app/` - Added OAuth models, routes, and account management
+- `frontend/app.py` - Added OAuth routes and account management
+- `backend/requirements.txt` - Added OAuth dependencies
+- `frontend/requirements.txt` - Added HTTP client dependency
+- `frontend/templates/login.html` - Added OAuth login options
+- `frontend/templates/admin.html` - Enhanced with OAuth management
+- `frontend/templates/base.html` - Added navigation and Font Awesome icons
+- `frontend/templates/dashboard.html` - Added account management link
+- `Makefile` - Added OAuth management commands
+- `README.md` - Updated with OAuth features
+
+**New Backend API Endpoints:**
+- `POST /api/v1/auth/register` - User self-registration
+- `GET /api/v1/auth/account` - Get user account info
+- `PUT /api/v1/auth/account` - Update user account
+- `DELETE /api/v1/auth/account/oauth/<id>` - Remove OAuth account
+- `GET /api/v1/auth/oauth/<provider>/authorize` - OAuth authorization
+- `GET /api/v1/auth/oauth/<provider>/callback` - OAuth callback handling
+- `GET /api/v1/auth/oauth/providers` - List available providers
+- `GET /api/v1/users/<id>/oauth-accounts` - Get user OAuth accounts (admin)
+- `DELETE /api/v1/users/<id>/oauth-accounts/<id>` - Remove user OAuth account (admin)
+- `GET /api/v1/admin/oauth-providers` - Get all OAuth providers (admin)
+- `POST /api/v1/admin/oauth-providers` - Create OAuth provider (admin)
+- `PUT /api/v1/admin/oauth-providers/<id>` - Update OAuth provider (admin)
+- `DELETE /api/v1/admin/oauth-providers/<id>` - Delete OAuth provider (admin)
+
+**New Frontend Routes:**
+- `/register` - User registration page
+- `/account` - Account management page
+- `/oauth/<provider>/login` - OAuth login initiation
+- `/oauth/<provider>/callback` - OAuth callback handling
+- `/admin/oauth-providers` - OAuth provider management
+- `/admin/oauth-providers/create` - Create OAuth provider
+- `/admin/oauth-providers/<id>/update` - Update OAuth provider
+- `/admin/oauth-providers/<id>/delete` - Delete OAuth provider
+
+**Database Schema Changes:**
+- **New Tables**: `oauth_provider` and `oauth_account`
+- **User Table Updates**: Made `password_hash` nullable for OAuth-only users
+- **Relationships**: Users can have multiple OAuth accounts
+- **Provider Configuration**: Stored in database for dynamic management
+
+**OAuth Flow Implementation:**
+1. **Authorization**: User clicks OAuth button → redirected to provider
+2. **Callback**: Provider redirects back with authorization code
+3. **Token Exchange**: Backend exchanges code for access token
+4. **User Info**: Backend fetches user information from provider
+5. **Account Creation/Linking**: User created or linked to existing account
+6. **JWT Generation**: User receives JWT token for immediate login
+
+**Security Features:**
+- **OAuth 2.0 Standard**: Industry-standard OAuth implementation
+- **Secure Token Handling**: Proper token exchange and validation
+- **Account Linking**: Links OAuth accounts to existing users by email
+- **Safety Validation**: Prevents removal of last authentication method
+- **Admin Authorization**: OAuth management restricted to admins
+
+**User Experience Improvements:**
+- **Seamless Integration**: OAuth buttons alongside traditional login
+- **Immediate Access**: OAuth users get instant account creation and login
+- **Flexible Authentication**: Users can use passwords, OAuth, or both
+- **Visual Indicators**: Clear badges showing authentication methods
+- **Responsive Design**: Works on all device sizes
+
+**Admin Management Features:**
+- **Provider Configuration**: Web interface for OAuth provider setup
+- **Quick Setup Templates**: Pre-filled forms for Google and GitHub
+- **Provider Monitoring**: View all configured providers and their status
+- **User OAuth Overview**: See authentication methods for all users
+- **Safe Deletion**: Prevents removal of providers with connected users
+
+**Configuration Management:**
+- **Environment Variables**: Support for OAuth client IDs and secrets
+- **Database Storage**: Provider configuration stored in database
+- **Dynamic Updates**: Providers can be added/modified without code changes
+- **Setup Scripts**: Automated OAuth provider configuration
+
+**Makefile Commands Added:**
+- OAuth provider management through web interface
+
+**Benefits of OAuth Integration:**
+- **User Convenience**: Multiple login options reduce friction
+- **Security**: OAuth providers handle password security
+- **Scalability**: Easy to add new OAuth providers
+- **Maintenance**: Provider configuration managed through web interface
+- **Standards Compliance**: Follows OAuth 2.0 best practices
+
 ## Final Architecture
 
 ### Services:
@@ -203,6 +323,9 @@ The user requested a complete application stack demonstrating Redis and JWT auth
 - Role-based access control
 - CORS protection
 - Server-side session management
+- **OAuth 2.0 authentication with Google and GitHub**
+- **Multiple authentication methods per user**
+- **Secure OAuth token handling and validation**
 
 ### API Endpoints:
 - `POST /api/v1/auth/login` - Authentication
@@ -212,6 +335,36 @@ The user requested a complete application stack demonstrating Redis and JWT auth
 - `PUT /api/v1/users/<id>` - User updates (admin)
 - `GET /api/v1/hello` - Protected hello endpoint
 - `GET /api/v1/me` - Current user info
+- **`POST /api/v1/auth/register` - User self-registration**
+- **`GET /api/v1/auth/account` - User account management**
+- **`PUT /api/v1/auth/account` - Update user account**
+- **`DELETE /api/v1/auth/account/oauth/<id>` - Remove OAuth account**
+- **`GET /api/v1/auth/oauth/<provider>/authorize` - OAuth authorization**
+- **`GET /api/v1/auth/oauth/<provider>/callback` - OAuth callback**
+- **`GET /api/v1/auth/oauth/providers` - List OAuth providers**
+- **`GET /api/v1/admin/oauth-providers` - OAuth provider management (admin)**
+- **`POST /api/v1/admin/oauth-providers` - Create OAuth provider (admin)**
+- **`PUT /api/v1/admin/oauth-providers/<id>` - Update OAuth provider (admin)**
+- **`DELETE /api/v1/admin/oauth-providers/<id>` - Delete OAuth provider (admin)**
+
+### Frontend Features:
+- User login/logout with session management
+- Admin dashboard for user management
+- Hello world page demonstrating API integration
+- Responsive Bootstrap UI
+- Flash message notifications
+- **OAuth login support (Google, GitHub)**
+- **User self-registration system**
+- **Comprehensive account management interface**
+- **OAuth provider management (admin)**
+- **Enhanced admin dashboard with OAuth overview**
+
+### Database Schema:
+- **User Table**: Basic user information with admin flags
+- **OAuth Provider Table**: Configurable OAuth provider settings
+- **OAuth Account Table**: Links users to their OAuth accounts
+- **Support for OAuth-only users (no password required)**
+- **Multiple OAuth accounts per user**
 
 ### Default Credentials:
 - **Username**: admin
@@ -251,6 +404,27 @@ The user requested a complete application stack demonstrating Redis and JWT auth
 - Header forwarding for seamless communication
 - Ready for production enhancements
 
+### 6. OAuth Integration Strategy
+- **Database-driven Provider Configuration**: OAuth providers stored in database for dynamic management
+- **Multiple Authentication Methods**: Users can have passwords, OAuth accounts, or both
+- **Account Linking by Email**: OAuth accounts linked to existing users when email matches
+- **Provider-agnostic Design**: Easy to add new OAuth providers without code changes
+- **Web-based Management**: Admin interface for OAuth provider configuration
+
+### 7. Account Management Architecture
+- **Self-service Registration**: Users can create accounts without admin intervention
+- **Profile Self-management**: Users can update their own information
+- **OAuth Account Management**: Users can view and remove connected OAuth accounts
+- **Safety Validation**: Prevents users from removing all authentication methods
+- **Admin Oversight**: Admins can manage all user accounts and OAuth connections
+
+### 8. Security and User Experience Balance
+- **Flexible Authentication**: Support for both traditional and OAuth authentication
+- **Immediate Access**: OAuth users get instant account creation and login
+- **Visual Feedback**: Clear indicators of available authentication methods
+- **Warning Systems**: Alerts when users might lock themselves out
+- **Admin Controls**: Comprehensive admin interface for system management
+
 ## Usage Instructions
 
 ### Quick Start:
@@ -271,6 +445,20 @@ make start
 - `make logs` - View logs
 - `make status` - Service status
 - `make clean` - Complete cleanup
+
+### OAuth Setup:
+1. **Set up OAuth applications** in Google Cloud Console and GitHub
+2. **Configure environment variables** with your OAuth credentials
+3. **Start the application**: `make start`
+4. **Access OAuth management**: Admin → OAuth Providers
+5. **Configure providers** through the web interface
+
+### OAuth Management:
+- **Access OAuth Providers**: Admin → OAuth Providers
+- **Add New Provider**: Use the creation form with quick setup templates
+- **Edit Provider**: Click edit button on any provider row
+- **Remove Provider**: Click delete button (with safety confirmation)
+- **Monitor Usage**: View connected accounts and provider status
 
 ## Production Considerations
 
@@ -313,5 +501,13 @@ The application stack successfully demonstrates:
 - Containerized microservices architecture
 - Clean separation between frontend and backend
 - Production-ready patterns and practices
+- **Comprehensive OAuth 2.0 integration with Google and GitHub**
+- **User self-registration and account management**
+- **Dynamic OAuth provider configuration through web interface**
+- **Multiple authentication methods per user**
+- **Enhanced admin dashboard with OAuth management**
+- **Industry-standard OAuth implementation following best practices**
 
-The implementation is minimal but fully functional, providing a solid foundation for understanding authentication best practices in a modern web application stack.
+This enhanced stack serves as an excellent foundation for understanding modern authentication best practices, OAuth integration patterns, and user account management in a containerized microservices environment.
+
+<!-- The end. -->

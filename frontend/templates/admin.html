@@ -38,6 +38,17 @@
                 <h5>User Management</h5>
             </div>
             <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="text-muted">Manage application users and their permissions</span>
+                    <div>
+                        <a href="{{ url_for('jwt_sessions') }}" class="btn btn-outline-warning btn-sm me-2">
+                            <i class="fas fa-key me-2"></i>JWT Sessions
+                        </a>
+                        <a href="{{ url_for('oauth_providers') }}" class="btn btn-outline-info btn-sm">
+                            <i class="fas fa-cogs me-2"></i>Manage OAuth Providers
+                        </a>
+                    </div>
+                </div>
                 <div class="table-responsive">
                     <table class="table table-striped">
                         <thead>
@@ -45,6 +56,7 @@
                                 <th>ID</th>
                                 <th>Username</th>
                                 <th>Email</th>
+                                <th>Auth Methods</th>
                                 <th>Admin</th>
                                 <th>Active</th>
                                 <th>Actions</th>
@@ -57,6 +69,29 @@
                                 <td>{{ user.username }}</td>
                                 <td>{{ user.email }}</td>
                                 <td>
+                                    <div class="d-flex gap-1">
+                                        {% if user.has_password %}
+                                        <span class="badge bg-success" title="Password authentication">
+                                            <i class="fas fa-key"></i>
+                                        </span>
+                                        {% endif %}
+                                        
+                                        {% if user.oauth_accounts %}
+                                            {% for oauth_account in user.oauth_accounts %}
+                                            <span class="badge bg-info" title="{{ oauth_account.provider|title }} OAuth">
+                                                <i class="fab fa-{{ oauth_account.provider.lower() }}"></i>
+                                            </span>
+                                            {% endfor %}
+                                        {% endif %}
+                                        
+                                        {% if not user.has_password and not user.oauth_accounts %}
+                                        <span class="badge bg-warning" title="No authentication method">
+                                            <i class="fas fa-exclamation-triangle"></i>
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
                                     <span class="badge bg-{{ 'success' if user.is_admin else 'secondary' }}">
                                         {{ 'Yes' if user.is_admin else 'No' }}
                                     </span>
@@ -67,11 +102,19 @@
                                     </span>
                                 </td>
                                 <td>
-                                    <button class="btn btn-sm btn-outline-primary" 
-                                            data-bs-toggle="modal" 
-                                            data-bs-target="#editModal{{ user.id }}">
-                                        Edit
-                                    </button>
+                                    <div class="btn-group" role="group">
+                                        <button class="btn btn-sm btn-outline-primary" 
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#editModal{{ user.id }}">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-info" 
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#oauthModal{{ user.id }}"
+                                                title="Manage OAuth Accounts">
+                                            <i class="fas fa-link"></i>
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                             {% endfor %}
@@ -123,4 +166,121 @@
     </div>
 </div>
 {% endfor %}
+
+<!-- OAuth Account Management Modals -->
+{% for user in users %}
+<div class="modal fade" id="oauthModal{{ user.id }}" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">OAuth Accounts: {{ user.username }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <h6>Authentication Methods</h6>
+                        <div class="d-flex gap-2">
+                            {% if user.has_password %}
+                            <span class="badge bg-success">
+                                <i class="fas fa-key me-1"></i>Password
+                            </span>
+                            {% endif %}
+                            
+                            {% if user.oauth_accounts %}
+                                {% for oauth_account in user.oauth_accounts %}
+                                <span class="badge bg-info">
+                                    <i class="fab fa-{{ oauth_account.provider.lower() }} me-1"></i>
+                                    {{ oauth_account.provider|title }}
+                                </span>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Account Status</h6>
+                        <div class="d-flex gap-2">
+                            <span class="badge bg-{{ 'success' if user.is_active else 'danger' }}">
+                                {{ 'Active' if user.is_active else 'Inactive' }}
+                            </span>
+                            {% if user.is_admin %}
+                            <span class="badge bg-primary">Admin</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                {% if user.oauth_accounts %}
+                    <h6>Connected OAuth Accounts</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Provider</th>
+                                    <th>Provider User ID</th>
+                                    <th>Connected Since</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for oauth_account in user.oauth_accounts %}
+                                <tr>
+                                    <td>
+                                        <span class="badge bg-secondary">
+                                            <i class="fab fa-{{ oauth_account.provider.lower() }} me-1"></i>
+                                            {{ oauth_account.provider|title }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <code>{{ oauth_account.provider_user_id }}</code>
+                                    </td>
+                                    <td>
+                                        {% if oauth_account.connected_at %}
+                                            {{ oauth_account.connected_at.split('T')[0] }}
+                                        {% else %}
+                                            Unknown
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <form method="POST" 
+                                              action="{{ url_for('admin_remove_user_oauth_account', user_id=user.id, oauth_account_id=oauth_account.id) }}"
+                                              class="d-inline"
+                                              onsubmit="return confirm('Are you sure you want to remove this OAuth account from {{ user.username }}?')">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                <i class="fas fa-unlink me-1"></i>Remove
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    {% if not user.has_password and user.oauth_accounts|length <= 1 %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Warning:</strong> This user only has one OAuth account and no password. 
+                        Removing the OAuth account would lock them out.
+                    </div>
+                    {% endif %}
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-link fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">No OAuth accounts connected</p>
+                        <p class="small text-muted">
+                            This user can only authenticate with their password
+                        </p>
+                    </div>
+                {% endif %}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
 {% endblock %}
+
+<!-- The end. -->

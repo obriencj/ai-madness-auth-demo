@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+
+{% block title %}Account Management - Auth Demo{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="mb-0">
+                        <i class="fas fa-user-cog me-2"></i>
+                        Account Management
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <!-- Profile Information -->
+                    <div class="mb-4">
+                        <h5 class="card-title">Profile Information</h5>
+                        <form method="POST" action="{{ url_for('update_account') }}">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="username" class="form-label">Username</label>
+                                    <input type="text" class="form-control" id="username" 
+                                           value="{{ account.username }}" readonly>
+                                    <small class="text-muted">Username cannot be changed</small>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="email" class="form-label">Email</label>
+                                    <input type="email" class="form-control" id="email" name="email" 
+                                           value="{{ account.email }}" required>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="password" class="form-label">New Password</label>
+                                    <input type="password" class="form-control" id="password" name="password" 
+                                           placeholder="Leave blank to keep current password">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="confirm_password" class="form-label">Confirm New Password</label>
+                                    <input type="password" class="form-control" id="confirm_password" 
+                                           placeholder="Confirm new password">
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Account Status</label>
+                                <div class="d-flex align-items-center">
+                                    <span class="badge bg-{{ 'success' if account.is_active else 'danger' }} me-2">
+                                        {{ 'Active' if account.is_active else 'Inactive' }}
+                                    </span>
+                                    {% if account.is_admin %}
+                                    <span class="badge bg-primary">Admin</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save me-2"></i>Update Profile
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    
+                    <hr class="my-4">
+                    
+                    <!-- OAuth Accounts -->
+                    <div class="mb-4">
+                        <h5 class="card-title">
+                            <i class="fas fa-link me-2"></i>
+                            Connected OAuth Accounts
+                        </h5>
+                        
+                        {% if account.oauth_accounts %}
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Provider</th>
+                                            <th>Provider User ID</th>
+                                            <th>Connected Since</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for oauth_account in account.oauth_accounts %}
+                                        <tr>
+                                            <td>
+                                                <span class="badge bg-secondary">
+                                                    <i class="fab fa-{{ oauth_account.provider.lower() }} me-1"></i>
+                                                    {{ oauth_account.provider|title }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <code>{{ oauth_account.provider_user_id }}</code>
+                                            </td>
+                                            <td>
+                                                {% if oauth_account.connected_at %}
+                                                    {{ oauth_account.connected_at.split('T')[0] }}
+                                                {% else %}
+                                                    Unknown
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <form method="POST" 
+                                                      action="{{ url_for('remove_oauth_account', oauth_account_id=oauth_account.id) }}"
+                                                      class="d-inline"
+                                                      onsubmit="return confirm('Are you sure you want to remove this OAuth account?')">
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                        <i class="fas fa-unlink me-1"></i>Remove
+                                                    </button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            {% if not account.has_password and account.oauth_accounts|length <= 1 %}
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                <strong>Warning:</strong> You only have one OAuth account connected and no password set. 
+                                Removing this account would lock you out of your account.
+                            </div>
+                            {% endif %}
+                        {% else %}
+                            <div class="text-center py-4">
+                                <i class="fas fa-link fa-3x text-muted mb-3"></i>
+                                <p class="text-muted">No OAuth accounts connected</p>
+                                <p class="small text-muted">
+                                    {% if available_oauth_providers %}
+                                        You can link OAuth providers below, or connect them from the login or registration pages
+                                    {% else %}
+                                        You can connect OAuth providers from the login or registration pages
+                                    {% endif %}
+                                </p>
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Link New OAuth Accounts -->
+                    {% if available_oauth_providers %}
+                    <div class="mb-4">
+                        <h5 class="card-title">
+                            <i class="fas fa-plus-circle me-2"></i>
+                            Link Additional OAuth Accounts
+                        </h5>
+                        <p class="text-muted small mb-3">
+                            Connect additional OAuth providers to your account for easier login
+                        </p>
+                        <div class="d-grid gap-2">
+                            {% for provider in available_oauth_providers %}
+                            <a href="{{ url_for('link_oauth_account', provider=provider.name) }}" 
+                               class="btn btn-outline-primary"
+                               style="border-color: {{ provider.color }}; color: {{ provider.color }};">
+                                <i class="{{ provider.icon }} me-2"></i>
+                                Link {{ provider.display_name }}
+                            </a>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Authentication Methods Summary -->
+                    <div class="mb-4">
+                        <h6 class="text-muted">Authentication Methods</h6>
+                        <div class="d-flex gap-2">
+                            {% if account.has_password %}
+                            <span class="badge bg-success">
+                                <i class="fas fa-key me-1"></i>Password
+                            </span>
+                            {% endif %}
+                            
+                            {% for oauth_account in account.oauth_accounts %}
+                            <span class="badge bg-info">
+                                <i class="fab fa-{{ oauth_account.provider.lower() }} me-1"></i>
+                                {{ oauth_account.provider|title }}
+                            </span>
+                            {% endfor %}
+                            
+                            {% if not account.has_password and not account.oauth_accounts %}
+                            <span class="badge bg-warning">
+                                <i class="fas fa-exclamation-triangle me-1"></i>No Authentication
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card-footer">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+                        </a>
+                        <small class="text-muted">
+                            Account information loaded successfully
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Password confirmation validation
+document.getElementById('password').addEventListener('input', function() {
+    const password = this.value;
+    const confirmPassword = document.getElementById('confirm_password');
+    
+    if (password && confirmPassword.value && password !== confirmPassword.value) {
+        confirmPassword.setCustomValidity('Passwords do not match');
+    } else {
+        confirmPassword.setCustomValidity('');
+    }
+});
+
+document.getElementById('confirm_password').addEventListener('input', function() {
+    const password = document.getElementById('password').value;
+    const confirmPassword = this.value;
+    
+    if (password && confirmPassword && password !== confirmPassword) {
+        this.setCustomValidity('Passwords do not match');
+    } else {
+        this.setCustomValidity('');
+    }
+});
+</script>
+{% endblock %}
+
+<!-- The end. -->

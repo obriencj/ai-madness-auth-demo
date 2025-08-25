@@ -16,14 +16,25 @@ A complete demonstration of JWT authentication with Redis session management, fe
 ### Backend API Endpoints
 - `POST /api/v1/auth/login` - User authentication
 - `POST /api/v1/auth/logout` - User logout (token blacklisting)
+- `POST /api/v1/auth/register` - Self-registration for new users
 - `POST /api/v1/register` - Create new users (admin only)
 - `GET /api/v1/users` - List all users (admin only)
 - `PUT /api/v1/users/<id>` - Update user (admin only)
 - `GET /api/v1/hello` - Protected hello world endpoint
 - `GET /api/v1/me` - Get current user info
+- `GET /api/v1/auth/oauth/<provider>/authorize` - OAuth authorization
+- `GET /api/v1/auth/oauth/<provider>/callback` - OAuth callback handling
+- `GET /api/v1/auth/oauth/providers` - List available OAuth providers
+- `GET /api/v1/admin/oauth-providers` - Get all OAuth providers (admin)
+- `POST /api/v1/admin/oauth-providers` - Create new OAuth provider (admin)
+- `PUT /api/v1/admin/oauth-providers/<id>` - Update OAuth provider (admin)
+- `DELETE /api/v1/admin/oauth-providers/<id>` - Delete OAuth provider (admin)
 
 ### Frontend Features
 - User login/logout with session management
+- **OAuth login support (Google, GitHub)**
+- **User self-registration**
+- **OAuth provider management (admin)**
 - Admin dashboard for user management
 - Hello world page demonstrating API integration
 - Responsive Bootstrap UI
@@ -70,6 +81,15 @@ The project includes a Makefile for easy management:
 4. **Default admin credentials:**
    - Username: `admin`
    - Password: `admin123`
+
+### OAuth Provider Management
+
+OAuth provider configuration is stored in the database, including:
+- Client ID and Secret
+- Authorization, Token, and User Info URLs
+- Scope values
+- Active status
+
 
 ## Service Details
 
@@ -146,8 +166,9 @@ curl -X POST http://localhost:8080/api/v1/register \
 - `JWT_SECRET_KEY`: Secret key for JWT signing
 - `BACKEND_URL`: Backend API URL (for frontend)
 
+
 ### Adding New Features
-1. Backend: Add routes in `backend/app.py`
+1. Backend: Add routes in `backend/app/` package
 2. Frontend: Add templates in `frontend/templates/`
 3. Update docker-compose.yml if new services are needed
 
@@ -192,3 +213,5 @@ make start
 ## License
 
 This project is for demonstration purposes. Please review and modify security settings before production use.
+
+<!-- The end. -->

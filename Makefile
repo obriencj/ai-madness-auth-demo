@@ -66,3 +66,5 @@ clean:
 	@echo "Cleaning up all containers, networks, and volumes..."
 	$(COMPOSE_CMD) down -v --remove-orphans
 	@echo "Cleanup completed!"
+
+# The end.
