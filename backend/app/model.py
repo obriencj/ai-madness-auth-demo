@@ -7,6 +7,7 @@ This module contains all SQLAlchemy model definitions and database-related funct
 import bcrypt
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
+from typing import List
 
 # Initialize SQLAlchemy instance (will be configured in app.py)
 db = SQLAlchemy()
@@ -36,6 +37,20 @@ class User(db.Model):
         return bcrypt.checkpw(
             password.encode('utf-8'), self.password_hash.encode('utf-8')
         )
+
+    def has_permission(self, permission: str) -> bool:
+        """Check if user has specific permission."""
+        if permission == 'admin':
+            return self.is_admin
+        # Add more permission logic here as needed
+        return True
+
+    def get_permissions(self) -> List[str]:
+        """Get list of user permissions."""
+        permissions = ['read', 'write']
+        if self.is_admin:
+            permissions.append('admin')
+        return permissions
 
     def __repr__(self):
         return f'<User {self.username}>'
@@ -126,7 +141,4 @@ class JWTSession(db.Model):
             return self.auth_method.title()
 
 
-
-
-
-
+# The end.
