@@ -53,11 +53,6 @@ setup(
             "mypy>=1.0.0",
         ],
     },
-    entry_points={
-        "console_scripts": [
-            "ai-auth-backend=ai_auth_backend.cli:main",
-        ],
-    },
     include_package_data=True,
     package_data={
         "ai_auth_backend": ["py.typed"],

@@ -41,7 +41,7 @@ run:  ## Run the application in production mode
 	gunicorn --bind 0.0.0.0:5000 --workers 4 --timeout 120 wsgi:app
 
 dev:  ## Run the application in development mode
-	FLASK_APP=ai_auth_backend.app:app FLASK_ENV=development python -m flask run --host 0.0.0.0 --port 5000
+	FLASK_APP=ai_auth_backend.app:create_app FLASK_ENV=development python -m flask run --host 0.0.0.0 --port 5000
 
 docker-build:  ## Build the production Docker image
 	docker build -t ai-auth-backend:latest .

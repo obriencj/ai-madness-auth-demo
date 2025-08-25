@@ -70,7 +70,7 @@ def create_app():
     return app
 
 
-# Create the application instance
-app = create_app()
+# Don't create the app instance during import
+# This will be created when needed
 
 # The end.

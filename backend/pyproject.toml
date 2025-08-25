@@ -49,9 +49,6 @@ dev = [
     "mypy>=1.0.0",
 ]
 
-[project.scripts]
-ai-auth-backend = "ai_auth_backend.cli:main"
-
 [project.urls]
 Homepage = "https://github.com/your-org/ai-auth-backend"
 Repository = "https://github.com/your-org/ai-auth-backend.git"

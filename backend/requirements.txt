@@ -5,7 +5,4 @@
 build>=0.10.0
 wheel>=0.40.0
 
-# Development tools
-click>=8.1.0
-
 # The end.
