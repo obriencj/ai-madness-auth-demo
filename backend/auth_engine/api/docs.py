@@ -4,7 +4,6 @@ API documentation using Flask-RESTX for OpenAPI/Swagger.
 
 from flask_restx import Api, Resource, fields, Namespace
 from flask import current_app
-from ..middleware.tenant import require_api_key, get_current_tenant
 
 # Create API documentation
 api = Api(
@@ -91,7 +90,7 @@ class LoginAPI(Resource):
     def post(self):
         """
         Authenticate user with username and password.
-        
+
         Returns JWT access token and user information on successful authentication.
         """
         pass
@@ -104,7 +103,7 @@ class LogoutAPI(Resource):
     def post(self):
         """
         Logout user and invalidate JWT token.
-        
+
         Requires valid JWT token in Authorization header.
         """
         pass
@@ -119,7 +118,7 @@ class RegisterAPI(Resource):
     def post(self):
         """
         Register new user account.
-        
+
         Creates new user account and returns JWT access token.
         """
         pass
@@ -133,7 +132,7 @@ class MeAPI(Resource):
     def get(self):
         """
         Get current user information.
-        
+
         Requires valid JWT token in Authorization header.
         Returns current user's information.
         """
@@ -149,7 +148,7 @@ class UsersAPI(Resource):
     def get(self):
         """
         List all users (Admin only).
-        
+
         Requires admin privileges and valid authentication.
         """
         pass
@@ -163,7 +162,7 @@ class UserAPI(Resource):
     def get(self, user_id):
         """
         Get user by ID.
-        
+
         Requires valid authentication.
         """
         pass
@@ -176,7 +175,7 @@ class UserAPI(Resource):
     def put(self, user_id):
         """
         Update user information (Admin only).
-        
+
         Requires admin privileges and valid authentication.
         """
         pass
@@ -189,7 +188,7 @@ class OAuthProvidersAPI(Resource):
     def get(self):
         """
         List available OAuth providers.
-        
+
         Returns list of configured OAuth providers.
         """
         pass
@@ -201,7 +200,7 @@ class OAuthAuthorizeAPI(Resource):
     def get(self, provider):
         """
         Initiate OAuth authorization.
-        
+
         Redirects user to OAuth provider for authorization.
         """
         pass
@@ -214,7 +213,7 @@ class OAuthCallbackAPI(Resource):
     def get(self, provider):
         """
         Handle OAuth callback.
-        
+
         Processes OAuth provider callback and authenticates user.
         """
         pass
@@ -229,7 +228,7 @@ class AdminStatsAPI(Resource):
     def get(self):
         """
         Get system statistics (Admin only).
-        
+
         Requires admin privileges and valid authentication.
         """
         pass
@@ -243,7 +242,7 @@ class AdminSessionsAPI(Resource):
     def get(self):
         """
         List active sessions (Admin only).
-        
+
         Requires admin privileges and valid authentication.
         """
         pass
@@ -256,7 +255,7 @@ class HealthAPI(Resource):
     def get(self):
         """
         Health check endpoint.
-        
+
         Returns service health status.
         """
         return {'status': 'healthy', 'service': 'auth-service'}
