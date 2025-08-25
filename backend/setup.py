@@ -1,5 +1,5 @@
 """
-Setup script for the Authentication Engine package.
+Setup configuration for ai_auth_backend package.
 """
 
 from setuptools import setup, find_packages
@@ -8,17 +8,17 @@ with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setup(
-    name="auth-engine",
-    version="1.0.0",
-    author="AI Madness Auth Demo",
-    author_email="admin@example.com",
-    description="A modular, configurable authentication system for Flask applications",
+    name="ai_auth_backend",
+    version="0.1.0",
+    author="AI Madness Team",
+    author_email="team@ai-madness.com",
+    description="A self-hosted, open-source authentication service",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/example/auth-engine",
+    url="https://github.com/your-org/ai-auth-backend",
     packages=find_packages(),
     classifiers=[
-        "Development Status :: 4 - Beta",
+        "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
@@ -27,43 +27,41 @@ setup(
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
-        "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
         "Topic :: Software Development :: Libraries :: Python Modules",
-        "Topic :: System :: Systems Administration :: Authentication/Directory",
+        "Topic :: Internet :: WWW/HTTP :: WSGI :: Application",
     ],
     python_requires=">=3.8",
     install_requires=[
-        "Flask>=2.0.0",
+        "Flask>=2.3.0",
         "Flask-SQLAlchemy>=3.0.0",
-        "Flask-JWT-Extended>=4.0.0",
+        "Flask-JWT-Extended>=4.5.0",
         "Flask-CORS>=4.0.0",
+        "Flask-RESTX>=1.1.0",
+        "SQLAlchemy>=2.0.0",
+        "psycopg2-binary>=2.9.0",
+        "redis>=4.5.0",
         "bcrypt>=4.0.0",
-        "redis>=4.0.0",
-        "requests>=2.25.0",
-        "python-dotenv>=1.0.0",
+        "requests>=2.28.0",
+        "gunicorn>=20.1.0",
     ],
     extras_require={
         "dev": [
-            "pytest>=6.0.0",
-            "pytest-flask>=1.0.0",
-            "black>=22.0.0",
-            "flake8>=4.0.0",
-            "mypy>=0.950",
-        ],
-        "postgres": [
-            "psycopg2-binary>=2.9.0",
-        ],
-        "mysql": [
-            "PyMySQL>=1.0.0",
+            "pytest>=7.0.0",
+            "pytest-cov>=4.0.0",
+            "black>=23.0.0",
+            "flake8>=6.0.0",
+            "mypy>=1.0.0",
         ],
     },
     entry_points={
         "console_scripts": [
-            "auth-engine=auth_engine.cli:main",
+            "ai-auth-backend=ai_auth_backend.cli:main",
         ],
     },
     include_package_data=True,
-    zip_safe=False,
+    package_data={
+        "ai_auth_backend": ["py.typed"],
+    },
 )
 
 # The end.

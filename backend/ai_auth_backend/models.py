@@ -1,5 +1,5 @@
 """
-Database models for the Auth Demo application.
+Database models for the AI Auth Backend.
 
 This module contains all SQLAlchemy model definitions and database-related 
 functionality.

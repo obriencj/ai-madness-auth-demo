@@ -1,14 +1,11 @@
-Flask==2.3.3
-Flask-SQLAlchemy==3.0.5
-Flask-JWT-Extended==4.5.3
-Flask-CORS==4.0.0
-psycopg2-binary==2.9.7
-redis==5.0.1
-bcrypt==4.0.1
-python-dotenv==1.0.0
-gunicorn==21.2.0
-Flask-OAuthlib==0.9.6
-requests==2.31.0
-Werkzeug>=2.2,<3.0
+# Development dependencies for AI Auth Backend
+# Production dependencies are defined in pyproject.toml
+
+# Build tools
+build>=0.10.0
+wheel>=0.40.0
+
+# Development tools
+click>=8.1.0
 
 # The end.
