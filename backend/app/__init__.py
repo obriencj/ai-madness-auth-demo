@@ -22,12 +22,24 @@ def create_app():
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     
-    # Initialize extensions
+    # Set database URI
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv(
+        'DATABASE_URL',
+        'postgresql://auth_user:auth_password@localhost:5432/auth_demo'
+    )
+    
+    # Initialize database first
     db.init_app(app)
     
     # Initialize JWT
     jwt = JWTManager()
     jwt.init_app(app)
+    
+    # Set up model references for the auth engine
+    app.user_model = User
+    app.oauth_provider_model = OAuthProvider
+    app.oauth_account_model = OAuthAccount
+    app.session_model = JWTSession
     
     # Configure authentication engine
     auth_config = AuthConfig({
@@ -39,12 +51,6 @@ def create_app():
         'enable_session_tracking': True,
         'permissions': ['read', 'write', 'admin']
     })
-    
-    # Set up model references for the auth engine
-    app.user_model = User
-    app.oauth_provider_model = OAuthProvider
-    app.oauth_account_model = OAuthAccount
-    app.session_model = JWTSession
     
     # Initialize the authentication engine
     auth_engine = AuthEngine(app, auth_config)

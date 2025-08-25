@@ -35,8 +35,9 @@ class AuthEngine:
     
     def _setup_app(self):
         """Setup Flask app with authentication configuration."""
-        # Configure database
-        self.app.config['SQLALCHEMY_DATABASE_URI'] = self.config.database_url
+        # Configure database (only if not already set)
+        if 'SQLALCHEMY_DATABASE_URI' not in self.app.config:
+            self.app.config['SQLALCHEMY_DATABASE_URI'] = self.config.database_url
         self.app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
         
         # Configure JWT
