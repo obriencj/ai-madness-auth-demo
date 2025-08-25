@@ -1,16 +1,53 @@
 """
 Database models for the Auth Demo application.
 
-This module contains all SQLAlchemy model definitions and database-related functionality.
+This module contains all SQLAlchemy model definitions and database-related 
+functionality.
 """
 
 import bcrypt
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
 from typing import List
 
 # Initialize SQLAlchemy instance (will be configured in app.py)
 db = SQLAlchemy()
+
+
+class Tenant(db.Model):
+    """Tenant model for multi-tenant support."""
+    __tablename__ = 'tenant'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), unique=True, nullable=False)
+    domain = db.Column(db.String(255), unique=True)
+    api_key = db.Column(db.String(255), unique=True, nullable=False)
+    settings = db.Column(db.JSON, default={})
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(
+        db.DateTime, default=db.func.current_timestamp()
+    )
+    updated_at = db.Column(
+        db.DateTime, 
+        default=db.func.current_timestamp(), 
+        onupdate=db.func.current_timestamp()
+    )
+    
+    # Relationships
+    users = db.relationship('User', backref='tenant', lazy='dynamic')
+    oauth_providers = db.relationship(
+        'OAuthProvider', backref='tenant', lazy='dynamic'
+    )
+    oauth_accounts = db.relationship(
+        'OAuthAccount', backref='tenant', lazy='dynamic'
+    )
+    jwt_sessions = db.relationship(
+        'JWTSession', backref='tenant', lazy='dynamic'
+    )
+    webhooks = db.relationship('Webhook', backref='tenant', lazy='dynamic')
+    audit_logs = db.relationship('AuditLog', backref='tenant', lazy='dynamic')
+    
+    def __repr__(self):
+        return f'<Tenant {self.name}>'
 
 
 class User(db.Model):
@@ -20,9 +57,25 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    password_hash = db.Column(db.String(255), nullable=True)  # Made nullable for OAuth users
+    password_hash = db.Column(
+        db.String(255), nullable=True
+    )  # Made nullable for OAuth users
     is_admin = db.Column(db.Boolean, default=False)
     is_active = db.Column(db.Boolean, default=True)
+    tenant_id = db.Column(
+        db.Integer, db.ForeignKey('tenant.id'), nullable=False
+    )
+    external_user_id = db.Column(
+        db.String(255)
+    )  # For consuming app user mapping
+    created_at = db.Column(
+        db.DateTime, default=db.func.current_timestamp()
+    )
+    updated_at = db.Column(
+        db.DateTime, 
+        default=db.func.current_timestamp(), 
+        onupdate=db.func.current_timestamp()
+    )
 
     def set_password(self, password):
         """Hash and set user password."""
@@ -69,6 +122,9 @@ class OAuthProvider(db.Model):
     userinfo_url = db.Column(db.String(500), nullable=False)
     scope = db.Column(db.String(255), nullable=False)
     is_active = db.Column(db.Boolean, default=True)
+    tenant_id = db.Column(
+        db.Integer, db.ForeignKey('tenant.id'), nullable=False
+    )
     created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
 
     def __repr__(self):
@@ -88,8 +144,15 @@ class OAuthAccount(db.Model):
     access_token = db.Column(db.Text)
     refresh_token = db.Column(db.Text)
     token_expires_at = db.Column(db.DateTime)
+    tenant_id = db.Column(
+        db.Integer, db.ForeignKey('tenant.id'), nullable=False
+    )
     created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
-    updated_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+    updated_at = db.Column(
+        db.DateTime, 
+        default=db.func.current_timestamp(), 
+        onupdate=db.func.current_timestamp()
+    )
 
     # Relationships
     user = db.relationship('User', backref='oauth_accounts')
@@ -101,44 +164,95 @@ class OAuthAccount(db.Model):
     )
 
     def __repr__(self):
-        return f'<OAuthAccount {self.provider.name}:{self.provider_user_id}>'
+        return f'<OAuthAccount {self.user.username}@{self.provider.name}>'
 
 
 class JWTSession(db.Model):
-    """JWT session tracking model for admin session management."""
+    """JWT session tracking model."""
     __tablename__ = 'jwt_session'
     
     id = db.Column(db.Integer, primary_key=True)
-    jti = db.Column(db.String(255), unique=True, nullable=False)  # JWT ID
+    jti = db.Column(db.String(255), unique=True, nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    auth_method = db.Column(db.String(50), nullable=False)  # 'password', 'oauth_google', etc.
-    ip_address = db.Column(db.String(45), nullable=True)  # IPv4 or IPv6
-    user_agent = db.Column(db.Text, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    auth_method = db.Column(
+        db.String(50), nullable=False
+    )  # 'password', 'oauth_google', etc.
+    ip_address = db.Column(db.String(45))  # IPv6 compatible
+    user_agent = db.Column(db.Text)
     expires_at = db.Column(db.DateTime, nullable=False)
     is_active = db.Column(db.Boolean, default=True)
-    
+    tenant_id = db.Column(
+        db.Integer, db.ForeignKey('tenant.id'), nullable=False
+    )
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+    updated_at = db.Column(
+        db.DateTime, 
+        default=db.func.current_timestamp(), 
+        onupdate=db.func.current_timestamp()
+    )
+
     # Relationships
     user = db.relationship('User', backref='jwt_sessions')
 
     def __repr__(self):
-        return f'<JWTSession {self.jti} for {self.user.username}>'
+        return f'<JWTSession {self.jti}>'
 
-    @property
-    def is_expired(self):
-        """Check if the session has expired."""
-        return datetime.utcnow() > self.expires_at
 
-    @property
-    def auth_method_display(self):
-        """Get a human-readable authentication method name."""
-        if self.auth_method == 'password':
-            return 'Password'
-        elif self.auth_method.startswith('oauth_'):
-            provider = self.auth_method.replace('oauth_', '').title()
-            return f'OAuth ({provider})'
-        else:
-            return self.auth_method.title()
+class Webhook(db.Model):
+    """Webhook model for tenant event notifications."""
+    __tablename__ = 'webhook'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(
+        db.Integer, db.ForeignKey('tenant.id'), nullable=False
+    )
+    url = db.Column(db.String(500), nullable=False)
+    events = db.Column(
+        db.JSON, nullable=False, default=[]
+    )  # ['user.created', 'user.updated', etc.]
+    secret = db.Column(db.String(255))
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+    updated_at = db.Column(
+        db.DateTime, 
+        default=db.func.current_timestamp(), 
+        onupdate=db.func.current_timestamp()
+    )
+
+    def __repr__(self):
+        return f'<Webhook {self.url}>'
+
+
+class AuditLog(db.Model):
+    """Audit log model for compliance and tracking."""
+    __tablename__ = 'audit_log'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(
+        db.Integer, db.ForeignKey('tenant.id'), nullable=False
+    )
+    user_id = db.Column(
+        db.Integer, db.ForeignKey('user.id'), nullable=True
+    )
+    action = db.Column(
+        db.String(100), nullable=False
+    )  # 'user.login', 'user.created', etc.
+    resource_type = db.Column(
+        db.String(50)
+    )  # 'user', 'oauth_provider', etc.
+    resource_id = db.Column(
+        db.String(255)
+    )  # ID of the affected resource
+    details = db.Column(db.JSON)  # Additional details about the action
+    ip_address = db.Column(db.String(45))  # IPv6 compatible
+    user_agent = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+
+    # Relationships
+    user = db.relationship('User', backref='audit_logs')
+
+    def __repr__(self):
+        return f'<AuditLog {self.action} by {self.user_id}>'
 
 
 # The end.
