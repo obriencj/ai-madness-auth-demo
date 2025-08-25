@@ -8,7 +8,6 @@ from flask import current_app, request
 from flask_jwt_extended import create_access_token, decode_token
 
 from ..exceptions import AuthError, UserNotFound, PermissionDenied
-from .models import AbstractUser, AbstractOAuthProvider, AbstractOAuthAccount
 
 
 class AuthenticationService:
@@ -40,7 +39,7 @@ class AuthenticationService:
         
         return self._create_auth_result(user, f'oauth_{provider}')
     
-    def _create_auth_result(self, user: AbstractUser, auth_method: str) -> Dict[str, Any]:
+    def _create_auth_result(self, user, auth_method: str) -> Dict[str, Any]:
         """Create authentication result with JWT token and session."""
         # Create JWT token
         access_token = create_access_token(identity=user.username)
@@ -84,26 +83,26 @@ class UserService:
         self.user_model = user_model
         self.oauth_account_model = oauth_account_model
     
-    def get_user_by_id(self, user_id: Any) -> Optional[AbstractUser]:
+    def get_user_by_id(self, user_id: Any) -> Optional[Any]:
         """Get user by ID."""
         return self.user_model.query.get(user_id)
     
-    def get_user_by_username(self, username: str) -> Optional[AbstractUser]:
+    def get_user_by_username(self, username: str) -> Optional[Any]:
         """Get user by username."""
         return self.user_model.query.filter_by(username=username).first()
     
-    def get_user_by_email(self, email: str) -> Optional[AbstractUser]:
+    def get_user_by_email(self, email: str) -> Optional[Any]:
         """Get user by email."""
         return self.user_model.query.filter_by(email=email).first()
     
-    def create_user(self, user_data: Dict[str, Any]) -> AbstractUser:
+    def create_user(self, user_data: Dict[str, Any]) -> Any:
         """Create new user."""
         user = self.user_model(**user_data)
         current_app.db.session.add(user)
         current_app.db.session.commit()
         return user
     
-    def update_user(self, user_id: Any, user_data: Dict[str, Any]) -> AbstractUser:
+    def update_user(self, user_id: Any, user_data: Dict[str, Any]) -> Any:
         """Update existing user."""
         user = self.get_user_by_id(user_id)
         if not user:
@@ -125,7 +124,7 @@ class UserService:
         current_app.db.session.delete(user)
         current_app.db.session.commit()
     
-    def find_or_create_oauth_user(self, provider: str, user_info: Dict[str, Any]) -> AbstractUser:
+    def find_or_create_oauth_user(self, provider: str, user_info: Dict[str, Any]) -> Any:
         """Find existing user or create new one from OAuth data."""
         # Try to find existing OAuth account
         oauth_account = self._find_oauth_account(provider, user_info)
@@ -142,7 +141,7 @@ class UserService:
         # Create new user
         return self._create_oauth_user(provider, user_info)
     
-    def _find_oauth_account(self, provider: str, user_info: Dict[str, Any]) -> Optional[AbstractOAuthAccount]:
+    def _find_oauth_account(self, provider: str, user_info: Dict[str, Any]) -> Optional[Any]:
         """Find OAuth account by provider and user info."""
         provider_user_id = str(user_info.get('id', user_info.get('sub', '')))
         return self.oauth_account_model.query.filter_by(
@@ -150,7 +149,7 @@ class UserService:
             provider_user_id=provider_user_id
         ).first()
     
-    def _create_oauth_user(self, provider: str, user_info: Dict[str, Any]) -> AbstractUser:
+    def _create_oauth_user(self, provider: str, user_info: Dict[str, Any]) -> Any:
         """Create new user from OAuth data."""
         username = self._generate_unique_username(user_info)
         email = user_info.get('email', f"{username}@{provider}.oauth")
@@ -176,7 +175,7 @@ class UserService:
         
         return username
     
-    def serialize_user(self, user: AbstractUser) -> Dict[str, Any]:
+    def serialize_user(self, user: Any) -> Dict[str, Any]:
         """Serialize user object to dictionary."""
         return {
             'id': user.id,
@@ -186,11 +185,11 @@ class UserService:
             'permissions': user.get_permissions()
         }
     
-    def check_permission(self, user: AbstractUser, permission: str) -> bool:
+    def check_permission(self, user: Any, permission: str) -> bool:
         """Check if user has specific permission."""
         return user.has_permission(permission)
     
-    def require_permission(self, user: AbstractUser, permission: str):
+    def require_permission(self, user: Any, permission: str):
         """Require user to have specific permission."""
         if not self.check_permission(user, permission):
             raise PermissionDenied(f"Permission '{permission}' required")
@@ -205,7 +204,7 @@ class SessionService:
     
     def create_session(self, jti: str, user_id: Any, auth_method: str, 
                       ip_address: Optional[str] = None, 
-                      user_agent: Optional[str] = None) -> AbstractJWTSession:
+                      user_agent: Optional[str] = None) -> Any:
         """Create new JWT session."""
         expires_at = datetime.utcnow() + timedelta(hours=1)
         
@@ -224,7 +223,7 @@ class SessionService:
         
         return session
     
-    def get_session_by_jti(self, jti: str) -> Optional[AbstractJWTSession]:
+    def get_session_by_jti(self, jti: str) -> Optional[Any]:
         """Get session by JTI."""
         return self.session_model.query.filter_by(jti=jti).first()
     
@@ -239,7 +238,7 @@ class SessionService:
             if self.redis_client:
                 self.redis_client.setex(jti, 3600, "true")
     
-    def get_active_sessions(self, user_id: Optional[Any] = None) -> List[AbstractJWTSession]:
+    def get_active_sessions(self, user_id: Optional[Any] = None) -> List[Any]:
         """Get active sessions, optionally filtered by user."""
         query = self.session_model.query.filter(
             self.session_model.is_active == True,

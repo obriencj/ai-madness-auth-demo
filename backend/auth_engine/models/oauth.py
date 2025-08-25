@@ -5,12 +5,10 @@ Concrete OAuth model implementations.
 from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
 
-from ..core.models import AbstractOAuthProvider, AbstractOAuthAccount
-
 db = SQLAlchemy()
 
 
-class OAuthProvider(db.Model, AbstractOAuthProvider):
+class OAuthProvider(db.Model):
     """Concrete OAuth provider model implementation."""
     __tablename__ = 'oauth_provider'
     
@@ -29,7 +27,7 @@ class OAuthProvider(db.Model, AbstractOAuthProvider):
         return f'<OAuthProvider {self.name}>'
 
 
-class OAuthAccount(db.Model, AbstractOAuthAccount):
+class OAuthAccount(db.Model):
     """Concrete OAuth account model implementation."""
     __tablename__ = 'oauth_account'
     

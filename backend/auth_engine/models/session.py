@@ -5,12 +5,10 @@ Concrete JWT session model implementation.
 from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
 
-from ..core.models import AbstractJWTSession
-
 db = SQLAlchemy()
 
 
-class JWTSession(db.Model, AbstractJWTSession):
+class JWTSession(db.Model):
     """Concrete JWT session model implementation."""
     __tablename__ = 'jwt_session'
     

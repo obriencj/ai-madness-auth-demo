@@ -6,12 +6,10 @@ import bcrypt
 from flask_sqlalchemy import SQLAlchemy
 from typing import List
 
-from ..core.models import AbstractUser
-
 db = SQLAlchemy()
 
 
-class User(db.Model, AbstractUser):
+class User(db.Model):
     """Concrete User model implementation."""
     __tablename__ = 'user'
     
