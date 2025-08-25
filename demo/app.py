@@ -15,7 +15,6 @@ app.secret_key = os.getenv('SECRET_KEY', 'demo-secret-key-change-in-production')
 
 # Configuration
 AUTH_SERVICE_URL = os.getenv('AUTH_SERVICE_URL', 'http://localhost:5000')
-DEMO_API_KEY = os.getenv('DEMO_API_KEY', 'demo-api-key')
 
 
 def validate_jwt_token():
@@ -24,10 +23,7 @@ def validate_jwt_token():
         return None
     
     try:
-        headers = {
-            'Authorization': f'Bearer {session["access_token"]}',
-            'X-API-Key': DEMO_API_KEY
-        }
+        headers = {'Authorization': f'Bearer {session["access_token"]}'}
         response = requests.get(f'{AUTH_SERVICE_URL}/api/v1/me', headers=headers)
         
         if response.status_code == 200:
@@ -91,11 +87,9 @@ def login():
         password = request.form.get('password')
         
         try:
-            headers = {'X-API-Key': DEMO_API_KEY}
             response = requests.post(
                 f'{AUTH_SERVICE_URL}/api/v1/auth/login',
-                json={'username': username, 'password': password},
-                headers=headers
+                json={'username': username, 'password': password}
             )
             
             if response.status_code == 200:
@@ -118,10 +112,7 @@ def logout():
     """Logout user."""
     if 'access_token' in session:
         try:
-            headers = {
-                'Authorization': f'Bearer {session["access_token"]}',
-                'X-API-Key': DEMO_API_KEY
-            }
+            headers = {'Authorization': f'Bearer {session["access_token"]}'}
             requests.post(f'{AUTH_SERVICE_URL}/api/v1/auth/logout', headers=headers)
         except requests.RequestException:
             pass  # Continue with logout even if auth service is unavailable

@@ -13,43 +13,6 @@ from typing import List
 db = SQLAlchemy()
 
 
-class Tenant(db.Model):
-    """Tenant model for multi-tenant support."""
-    __tablename__ = 'tenant'
-    
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), unique=True, nullable=False)
-    domain = db.Column(db.String(255), unique=True)
-    api_key = db.Column(db.String(255), unique=True, nullable=False)
-    settings = db.Column(db.JSON, default={})
-    is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(
-        db.DateTime, default=db.func.current_timestamp()
-    )
-    updated_at = db.Column(
-        db.DateTime, 
-        default=db.func.current_timestamp(), 
-        onupdate=db.func.current_timestamp()
-    )
-    
-    # Relationships
-    users = db.relationship('User', backref='tenant', lazy='dynamic')
-    oauth_providers = db.relationship(
-        'OAuthProvider', backref='tenant', lazy='dynamic'
-    )
-    oauth_accounts = db.relationship(
-        'OAuthAccount', backref='tenant', lazy='dynamic'
-    )
-    jwt_sessions = db.relationship(
-        'JWTSession', backref='tenant', lazy='dynamic'
-    )
-    webhooks = db.relationship('Webhook', backref='tenant', lazy='dynamic')
-    audit_logs = db.relationship('AuditLog', backref='tenant', lazy='dynamic')
-    
-    def __repr__(self):
-        return f'<Tenant {self.name}>'
-
-
 class User(db.Model):
     """User model for authentication and account management."""
     __tablename__ = 'user'
@@ -62,12 +25,6 @@ class User(db.Model):
     )  # Made nullable for OAuth users
     is_admin = db.Column(db.Boolean, default=False)
     is_active = db.Column(db.Boolean, default=True)
-    tenant_id = db.Column(
-        db.Integer, db.ForeignKey('tenant.id'), nullable=False
-    )
-    external_user_id = db.Column(
-        db.String(255)
-    )  # For consuming app user mapping
     created_at = db.Column(
         db.DateTime, default=db.func.current_timestamp()
     )
@@ -122,9 +79,6 @@ class OAuthProvider(db.Model):
     userinfo_url = db.Column(db.String(500), nullable=False)
     scope = db.Column(db.String(255), nullable=False)
     is_active = db.Column(db.Boolean, default=True)
-    tenant_id = db.Column(
-        db.Integer, db.ForeignKey('tenant.id'), nullable=False
-    )
     created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
 
     def __repr__(self):
@@ -144,9 +98,6 @@ class OAuthAccount(db.Model):
     access_token = db.Column(db.Text)
     refresh_token = db.Column(db.Text)
     token_expires_at = db.Column(db.DateTime)
-    tenant_id = db.Column(
-        db.Integer, db.ForeignKey('tenant.id'), nullable=False
-    )
     created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
     updated_at = db.Column(
         db.DateTime, 
@@ -181,9 +132,6 @@ class JWTSession(db.Model):
     user_agent = db.Column(db.Text)
     expires_at = db.Column(db.DateTime, nullable=False)
     is_active = db.Column(db.Boolean, default=True)
-    tenant_id = db.Column(
-        db.Integer, db.ForeignKey('tenant.id'), nullable=False
-    )
     created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
     updated_at = db.Column(
         db.DateTime, 
@@ -199,13 +147,10 @@ class JWTSession(db.Model):
 
 
 class Webhook(db.Model):
-    """Webhook model for tenant event notifications."""
+    """Webhook model for event notifications."""
     __tablename__ = 'webhook'
     
     id = db.Column(db.Integer, primary_key=True)
-    tenant_id = db.Column(
-        db.Integer, db.ForeignKey('tenant.id'), nullable=False
-    )
     url = db.Column(db.String(500), nullable=False)
     events = db.Column(
         db.JSON, nullable=False, default=[]
@@ -228,9 +173,6 @@ class AuditLog(db.Model):
     __tablename__ = 'audit_log'
     
     id = db.Column(db.Integer, primary_key=True)
-    tenant_id = db.Column(
-        db.Integer, db.ForeignKey('tenant.id'), nullable=False
-    )
     user_id = db.Column(
         db.Integer, db.ForeignKey('user.id'), nullable=True
     )

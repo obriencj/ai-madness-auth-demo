@@ -75,7 +75,6 @@ services:
     build: ./demo
     environment:
       - AUTH_SERVICE_URL=http://backend:5000
-      - DEMO_API_KEY=demo-api-key
       - SECRET_KEY=demo-secret-key-change-in-production
     ports:
       - "5001:5001"
