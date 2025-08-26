@@ -6,6 +6,10 @@ This module handles application configuration management, including:
 - Version management and rollbacks
 - REST API endpoints for configuration management
 - Cache management and monitoring
+
+Author: Christopher O'Brien <obriencj@gmail.com>
+Assisted-By: Claude Sonnet 4 (AI Assistant)
+License: GNU General Public License v3.0
 """
 
 import json

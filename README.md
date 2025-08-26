@@ -212,6 +212,7 @@ make start
 
 ## License
 
-This project is for demonstration purposes. Please review and modify security settings before production use.
+GNU General Public License v3 (GPLv3)
+
 
 <!-- The end. -->

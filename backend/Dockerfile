@@ -10,7 +10,7 @@ ENV \
 
 WORKDIR /build
 
-COPY setup.cfg setup.py README.md ./
+COPY setup.cfg setup.py README.md LICENSE ./
 COPY gilla_auth/ ./gilla_auth/
 
 RUN \

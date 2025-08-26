@@ -1,3 +1,13 @@
+"""
+Gilla Auth API Module
+
+This module provides the main Flask application factory and API routes for the Gilla Auth system.
+
+Author: Christopher O'Brien <obriencj@gmail.com>
+Assisted-By: Claude Sonnet 4 (AI Assistant)
+License: GNU General Public License v3.0
+"""
+
 import os
 from datetime import timedelta
 from flask import Flask, request, jsonify
