@@ -1,11 +1,11 @@
 """
 User authentication and self-management endpoints for the Auth Demo application.
+This module handles user authentication, registration, and account management.
+
 
 Author: Christopher O'Brien <obriencj@gmail.com>
 Assisted-By: Claude Sonnet 4 (AI Assistant)
 License: GNU General Public License v3.0
-
-This module handles user authentication, registration, and account management.
 """
 
 from flask import Blueprint, request, jsonify
@@ -276,5 +276,6 @@ def link_oauth_callback(provider):
     return jsonify({
         'message': f'OAuth linking callback for {provider} would be handled here'
     }), 200
+
 
 # The end.
