@@ -5,7 +5,7 @@ This module handles user authentication, registration, and account management.
 """
 
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity, create_access_token
+from flask_jwt_extended import jwt_required, get_jwt_identity, create_access_token, decode_token
 from .model import db, User
 from .jwt import expire_jwt_session, create_jwt_session
 from .config import is_registration_allowed, is_user_login_allowed
@@ -34,7 +34,6 @@ def login():
         access_token = create_access_token(identity=user.username)
 
         # Get JTI from the token
-        from flask_jwt_extended import decode_token
         token_data = decode_token(access_token)
         jti = token_data['jti']
 
@@ -97,7 +96,6 @@ def self_register():
         access_token = create_access_token(identity=new_user.username)
 
         # Get JTI from the token
-        from flask_jwt_extended import decode_token
         token_data = decode_token(access_token)
         jti = token_data['jti']
 
@@ -117,6 +115,9 @@ def self_register():
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': 'Failed to create user'}), 500
+
+
+
 
 
 @user_bp.route('/me', methods=['GET'])

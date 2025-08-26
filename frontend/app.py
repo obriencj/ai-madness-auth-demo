@@ -42,7 +42,7 @@ def validate_jwt_token():
     
     try:
         headers = {'Authorization': f'Bearer {session["access_token"]}'}
-        response = requests.get(f'{BACKEND_URL}/api/v1/me', headers=headers)
+        response = requests.get(f'{BACKEND_URL}/api/v1/auth/me', headers=headers)
         
         if response.status_code == 200:
             data = response.json()

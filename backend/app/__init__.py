@@ -49,7 +49,6 @@ app = create_app()
 
 # Routes
 
-
 @app.route('/api/v1/register', methods=['POST'])
 @jwt_required()
 def register_user():
