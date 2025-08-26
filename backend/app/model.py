@@ -126,6 +126,35 @@ class JWTSession(db.Model):
             return self.auth_method.title()
 
 
+class AppConfigVersion(db.Model):
+    """Application configuration version model."""
+    __tablename__ = 'app_config_version'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    version = db.Column(db.Integer, nullable=False)
+    config_data = db.Column(db.JSON, nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    is_active = db.Column(db.Boolean, default=False, nullable=False)
+    activated_at = db.Column(db.DateTime, nullable=True)
+    activated_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    
+    # Relationships
+    creator = db.relationship('User', foreign_keys=[created_by], backref='created_configs')
+    activator = db.relationship('User', foreign_keys=[activated_by], backref='activated_configs')
+
+    def __repr__(self):
+        return f'<AppConfigVersion {self.version} {"(active)" if self.is_active else ""}>'
+
+    @property
+    def is_current(self):
+        """Check if this is the currently active configuration."""
+        return self.is_active
+
+# The end.
+
+
 
 
 

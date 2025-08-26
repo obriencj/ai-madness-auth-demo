@@ -21,7 +21,7 @@ A complete demonstration of JWT authentication with Redis session management, fe
 - `GET /api/v1/users` - List all users (admin only)
 - `PUT /api/v1/users/<id>` - Update user (admin only)
 - `GET /api/v1/hello` - Protected hello world endpoint
-- `GET /api/v1/me` - Get current user info
+- `GET /api/v1/auth/me` - Get current user info
 - `GET /api/v1/auth/oauth/<provider>/authorize` - OAuth authorization
 - `GET /api/v1/auth/oauth/<provider>/callback` - OAuth callback handling
 - `GET /api/v1/auth/oauth/providers` - List available OAuth providers

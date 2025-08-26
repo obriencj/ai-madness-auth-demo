@@ -15,6 +15,8 @@ from .jwt import (
 
 # Import blueprints
 from .oauth import oauth_bp
+from .config import config_bp, public_config_bp
+from .user import user_bp
 
 
 def create_app():
@@ -35,6 +37,9 @@ def create_app():
     # Register blueprints
     app.register_blueprint(oauth_bp)
     app.register_blueprint(jwt_bp)
+    app.register_blueprint(config_bp)
+    app.register_blueprint(public_config_bp)
+    app.register_blueprint(user_bp)
 
     return app
 
@@ -43,46 +48,6 @@ app = create_app()
 
 
 # Routes
-@app.route('/api/v1/auth/login', methods=['POST'])
-def login():
-    data = request.get_json()
-
-    if not data or not data.get('username') or not data.get('password'):
-        return jsonify({'error': 'Missing username or password'}), 400
-
-    user = User.query.filter_by(username=data['username']).first()
-
-    if user and user.check_password(data['password']) and user.is_active:
-        # Create JWT token
-        access_token = create_access_token(identity=user.username)
-
-        # Get JTI from the token
-        from flask_jwt_extended import decode_token
-        token_data = decode_token(access_token)
-        jti = token_data['jti']
-
-        # Create session record
-        create_jwt_session(jti, user.id, 'password')
-
-        return jsonify({
-            'access_token': access_token,
-            'user': {
-                'id': user.id,
-                'username': user.username,
-                'email': user.email,
-                'is_admin': user.is_admin
-            }
-        }), 200
-    else:
-        return jsonify({'error': 'Invalid credentials'}), 401
-
-
-@app.route('/api/v1/auth/logout', methods=['POST'])
-@jwt_required()
-def logout():
-    expire_jwt_session(get_jwt()["jti"])
-    return jsonify({'message': 'Successfully logged out'}), 200
-
 
 @app.route('/api/v1/register', methods=['POST'])
 @jwt_required()
@@ -127,57 +92,7 @@ def register_user():
     }), 201
 
 
-@app.route('/api/v1/auth/register', methods=['POST'])
-def self_register():
-    """Allow new users to register themselves"""
-    data = request.get_json()
 
-    if not data or not data.get('username') or not data.get('email') or not data.get('password'):
-        return jsonify({'error': 'Missing required fields'}), 400
-
-    # Check if user already exists
-    if User.query.filter_by(username=data['username']).first():
-        return jsonify({'error': 'Username already exists'}), 400
-
-    if User.query.filter_by(email=data['email']).first():
-        return jsonify({'error': 'Email already exists'}), 400
-
-    # Create new user (non-admin by default)
-    new_user = User(
-        username=data['username'],
-        email=data['email'],
-        is_admin=False
-    )
-    new_user.set_password(data['password'])
-
-    try:
-        db.session.add(new_user)
-        db.session.commit()
-
-        # Create JWT token for immediate login
-        access_token = create_access_token(identity=new_user.username)
-
-        # Get JTI from the token
-        from flask_jwt_extended import decode_token
-        token_data = decode_token(access_token)
-        jti = token_data['jti']
-
-        # Create session record
-        create_jwt_session(jti, new_user.id, 'password')
-
-        return jsonify({
-            'message': 'User registered successfully',
-            'access_token': access_token,
-            'user': {
-                'id': new_user.id,
-                'username': new_user.username,
-                'email': new_user.email,
-                'is_admin': new_user.is_admin
-            }
-        }), 201
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': 'Failed to create user'}), 500
 
 
 @app.route('/api/v1/users', methods=['GET'])
@@ -273,133 +188,13 @@ def hello():
         return jsonify({'error': 'Internal server error'}), 500
 
 
-@app.route('/api/v1/me', methods=['GET'])
-@jwt_required()
-def get_current_user():
-    current_username = get_jwt_identity()
-    user = User.query.filter_by(username=current_username).first()
-
-    if not user:
-        return jsonify({'error': 'User not found'}), 404
-
-    return jsonify({
-        'user': {
-            'id': user.id,
-            'username': user.username,
-            'email': user.email,
-            'is_admin': user.is_admin
-        }
-    }), 200
 
 
 
 
 
-# User Account Management Routes
-@app.route('/api/v1/auth/account', methods=['GET'])
-@jwt_required()
-def get_user_account():
-    """Get current user's account information including OAuth accounts"""
-    current_username = get_jwt_identity()
-    user = User.query.filter_by(username=current_username).first()
-
-    if not user:
-        return jsonify({'error': 'User not found'}), 404
-
-    # Get OAuth accounts for this user
-    oauth_accounts = []
-    for oauth_account in user.oauth_accounts:
-        oauth_accounts.append({
-            'id': oauth_account.id,
-            'provider': oauth_account.provider.name,
-            'provider_user_id': oauth_account.provider_user_id,
-            'connected_at': oauth_account.created_at.isoformat() if oauth_account.created_at else None
-        })
-
-    return jsonify({
-        'user': {
-            'id': user.id,
-            'username': user.username,
-            'email': user.email,
-            'is_admin': user.is_admin,
-            'is_active': user.is_active,
-            'has_password': user.password_hash is not None,
-            'oauth_accounts': oauth_accounts
-        }
-    }), 200
 
 
-@app.route('/api/v1/auth/account', methods=['PUT'])
-@jwt_required()
-def update_user_account():
-    """Update current user's account information"""
-    current_username = get_jwt_identity()
-    user = User.query.filter_by(username=current_username).first()
-
-    if not user:
-        return jsonify({'error': 'User not found'}), 404
-
-    data = request.get_json()
-
-    # Users can only update certain fields
-    if 'email' in data:
-        # Check if email is already taken by another user
-        existing_user = User.query.filter_by(email=data['email']).first()
-        if existing_user and existing_user.id != user.id:
-            return jsonify({'error': 'Email already exists'}), 400
-        user.email = data['email']
-
-    if 'password' in data and data['password']:
-        user.set_password(data['password'])
-
-    try:
-        db.session.commit()
-        return jsonify({
-            'message': 'Account updated successfully',
-            'user': {
-                'id': user.id,
-                'username': user.username,
-                'email': user.email,
-                'is_admin': user.is_admin,
-                'is_active': user.is_active
-            }
-        }), 200
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': 'Failed to update account'}), 500
-
-
-@app.route('/api/v1/auth/account/oauth/<int:oauth_account_id>', methods=['DELETE'])
-@jwt_required()
-def remove_oauth_account(oauth_account_id):
-    """Remove OAuth account from current user"""
-    current_username = get_jwt_identity()
-    user = User.query.filter_by(username=current_username).first()
-
-    if not user:
-        return jsonify({'error': 'User not found'}), 404
-
-    # Find the OAuth account and verify it belongs to the current user
-    oauth_account = OAuthAccount.query.filter_by(
-        id=oauth_account_id, user_id=user.id
-    ).first()
-
-    if not oauth_account:
-        return jsonify({'error': 'OAuth account not found'}), 404
-
-    # Check if user would be left without any authentication method
-    if not user.password_hash and len(user.oauth_accounts) <= 1:
-        return jsonify({
-            'error': 'Cannot remove OAuth account. You must have at least one authentication method.'
-        }), 400
-
-    try:
-        db.session.delete(oauth_account)
-        db.session.commit()
-        return jsonify({'message': 'OAuth account removed successfully'}), 200
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': 'Failed to remove OAuth account'}), 500
 
 
 # Admin OAuth Management Routes
