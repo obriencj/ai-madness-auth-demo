@@ -212,6 +212,7 @@ make start
 
 ## License
 
-GPL v3
+GNU General Public License v3 (GPLv3)
+
 
 <!-- The end. -->

@@ -126,4 +126,6 @@ All dependencies are managed through `setup.cfg` and installed when the wheel is
 
 ## License
 
-GPLv3 - see the main project README.md for details.
+GNU General Public License v3 (GPLv3)
+
+
