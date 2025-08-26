@@ -212,6 +212,6 @@ make start
 
 ## License
 
-This project is for demonstration purposes. Please review and modify security settings before production use.
+GPL v3
 
 <!-- The end. -->

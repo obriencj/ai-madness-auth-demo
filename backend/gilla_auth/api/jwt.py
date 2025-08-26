@@ -1,12 +1,12 @@
 """
 JWT and Redis configuration for the Auth Demo application.
 
+This module handles JWT token management, Redis connection for token blacklisting,
+and JWT error handling.
+
 Author: Christopher O'Brien <obriencj@gmail.com>
 Assisted-By: Claude Sonnet 4 (AI Assistant)
 License: GNU General Public License v3.0
-
-This module handles JWT token management, Redis connection for token blacklisting,
-and JWT error handling.
 """
 
 import os

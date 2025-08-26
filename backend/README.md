@@ -126,4 +126,4 @@ All dependencies are managed through `setup.cfg` and installed when the wheel is
 
 ## License
 
-MIT License - see the main project README for details.
+GPLv3 - see the main project README.md for details.

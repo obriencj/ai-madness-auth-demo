@@ -1,11 +1,11 @@
 """
 Database models for the Auth Demo application.
 
+This module contains all SQLAlchemy model definitions and database-related functionality.
+
 Author: Christopher O'Brien <obriencj@gmail.com>
 Assisted-By: Claude Sonnet 4 (AI Assistant)
 License: GNU General Public License v3.0
-
-This module contains all SQLAlchemy model definitions and database-related functionality.
 """
 
 import bcrypt
