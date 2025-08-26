@@ -75,7 +75,16 @@ def configure_jwt(app):
         'JWT_SECRET_KEY',
         'your-super-secret-jwt-key-change-in-production'
     )
-    app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=1)
+    
+    # Get JWT lifetime from configuration, default to 1 hour
+    try:
+        from .config import get_jwt_lifetime_hours
+        jwt_lifetime = get_jwt_lifetime_hours()
+        app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=jwt_lifetime)
+    except:
+        # Fallback to default if config service is not available
+        app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=1)
+    
     app.config['JWT_ALGORITHM'] = 'HS256'
     app.config['JWT_TOKEN_LOCATION'] = ['headers']
     app.config['JWT_HEADER_NAME'] = 'Authorization'

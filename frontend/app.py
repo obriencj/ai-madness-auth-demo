@@ -146,7 +146,16 @@ def login():
         oauth_providers = []
         print(f"Login: Connection error loading OAuth providers: {e}")
     
-    return render_template('login.html', oauth_providers=oauth_providers)
+    # Get configuration to check if registration is allowed
+    config = {}
+    try:
+        config_response = requests.get(f'{BACKEND_URL}/api/v1/auth/config')
+        if config_response.status_code == 200:
+            config = config_response.json().get('config', {})
+    except requests.RequestException:
+        pass  # Use default values if config service is unavailable
+    
+    return render_template('login.html', oauth_providers=oauth_providers, config=config)
 
 @app.route('/api/validate-session')
 def validate_session():
@@ -463,6 +472,13 @@ def jwt_sessions():
         return redirect(url_for('admin'))
 
 
+@app.route('/admin/config')
+@admin_required
+def config_management():
+    """Configuration management page"""
+    return render_template('config.html')
+
+
 @app.route('/admin/sessions/<int:session_id>/expire', methods=['POST'])
 @admin_required
 def expire_session(session_id):
@@ -653,7 +669,16 @@ def register():
         oauth_providers = []
         print(f"Register: Connection error loading OAuth providers: {e}")
     
-    return render_template('register.html', oauth_providers=oauth_providers)
+    # Get configuration to check if registration is allowed
+    config = {}
+    try:
+        config_response = requests.get(f'{BACKEND_URL}/api/v1/auth/config')
+        if config_response.status_code == 200:
+            config = config_response.json().get('config', {})
+    except requests.RequestException:
+        pass  # Use default values if config service is unavailable
+    
+    return render_template('register.html', oauth_providers=oauth_providers, config=config)
 
 
 @app.route('/account')

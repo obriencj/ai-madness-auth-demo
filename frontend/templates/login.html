@@ -26,15 +26,6 @@
                             {% endfor %}
                         </div>
                     </div>
-                    {% else %}
-                    <div class="mb-4">
-                        <div class="text-center">
-                            <small class="text-muted">
-                                <i class="fas fa-info-circle me-1"></i>
-                                OAuth login options will appear here when providers are configured
-                            </small>
-                        </div>
-                    </div>
                     {% endif %}
                     
                     <hr class="my-4">
@@ -55,14 +46,11 @@
                     </form>
                 </div>
                 <div class="card-footer text-center">
-                    <div class="mb-2">
-                        <small class="text-muted">
-                            Default admin: username=admin, password=admin123
-                        </small>
-                    </div>
+                    {% if config.auth and config.auth.allow_registration %}
                     <p class="mb-0">
                         Don't have an account? <a href="{{ url_for('register') }}">Sign up</a>
                     </p>
+                    {% endif %}
                 </div>
             </div>
         </div>
