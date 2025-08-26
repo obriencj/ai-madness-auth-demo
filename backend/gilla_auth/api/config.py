@@ -1,6 +1,10 @@
 """
 Configuration service and API endpoints for the Auth Demo application.
 
+Author: Christopher O'Brien <obriencj@gmail.com>
+Assisted-By: Claude Sonnet 4 (AI Assistant)
+License: GNU General Public License v3.0
+
 This module handles application configuration management, including:
 - Configuration retrieval with defaults and Redis caching
 - Version management and rollbacks

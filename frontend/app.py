@@ -1,3 +1,13 @@
+"""
+Frontend Flask application for the Gilla Auth Demo.
+
+Author: Christopher O'Brien <obriencj@gmail.com>
+Assisted-By: Claude Sonnet 4 (AI Assistant)
+License: GNU General Public License v3.0
+
+This module provides the frontend web interface for user authentication and management.
+"""
+
 import os
 import requests
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
