@@ -28,16 +28,15 @@ WORKDIR /app
 
 # Install gunicorn and other runtime dependencies
 RUN \
-  apk add --no-cache --virtual .build-deps gcc musl-dev libffi-dev && \
-  pip3 install gunicorn && \
-  apk del .build-deps
+  apk add --no-cache --virtual .build-deps gcc musl-dev krb5-dev krb5 libffi-dev
 
 # Copy the built wheel from the build stage
 COPY --from=build /build/dist/gilla*.whl .
 
 # Install the wheel
-RUN pip3 install gilla*.whl && \
-    rm gilla*.whl
+RUN pip3 install gilla*.whl gunicorn && \
+    rm gilla*.whl && \
+    apk del .build-deps krb5-dev
 
 # Create a non-root user
 RUN adduser -DS -s /sbin/nologin gilla gilla

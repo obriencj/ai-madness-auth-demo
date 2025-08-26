@@ -344,17 +344,7 @@ def handle_oauth_link(provider, code, error, current_user):
     }), 200
 
 
-def get_oauth_providers_list():
-    """Get list of available OAuth providers"""
-    providers = OAuthProvider.query.filter_by(is_active=True).all()
-    return jsonify({
-        'providers': [{
-            'name': provider.name,
-            'display_name': provider.name.title(),
-            'icon': f'fab fa-{provider.name}',
-            'color': _get_provider_color(provider.name)
-        } for provider in providers]
-    }), 200
+
 
 
 # OAuth Blueprint
@@ -400,10 +390,7 @@ def oauth_link(provider):
     return handle_oauth_link(provider, code, error, current_user)
 
 
-@oauth_bp.route('/providers', methods=['GET'])
-def get_oauth_providers():
-    """Get list of available OAuth providers"""
-    return get_oauth_providers_list()
+
 
 
 @oauth_bp.route('/connect/<provider>', methods=['POST'])

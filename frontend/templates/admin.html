@@ -44,8 +44,11 @@
                         <a href="{{ url_for('jwt_sessions') }}" class="btn btn-outline-warning btn-sm me-2">
                             <i class="fas fa-key me-2"></i>JWT Sessions
                         </a>
-                        <a href="{{ url_for('oauth_providers') }}" class="btn btn-outline-info btn-sm">
+                        <a href="{{ url_for('oauth_providers') }}" class="btn btn-outline-info btn-sm me-2">
                             <i class="fas fa-cogs me-2"></i>Manage OAuth Providers
+                        </a>
+                        <a href="{{ url_for('gssapi_realms') }}" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-shield-alt me-2"></i>Manage GSSAPI Realms
                         </a>
                     </div>
                 </div>
@@ -84,7 +87,15 @@
                                             {% endfor %}
                                         {% endif %}
                                         
-                                        {% if not user.has_password and not user.oauth_accounts %}
+                                        {% if user.gssapi_accounts %}
+                                            {% for gssapi_account in user.gssapi_accounts %}
+                                            <span class="badge bg-primary" title="{{ gssapi_account.realm|title }} GSSAPI">
+                                                <i class="fas fa-shield-alt"></i>
+                                            </span>
+                                            {% endfor %}
+                                        {% endif %}
+                                        
+                                        {% if not user.has_password and not user.oauth_accounts and not user.gssapi_accounts %}
                                         <span class="badge bg-warning" title="No authentication method">
                                             <i class="fas fa-exclamation-triangle"></i>
                                         </span>

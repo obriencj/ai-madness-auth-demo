@@ -146,6 +146,24 @@
                                 <input type="number" class="form-control" id="maxLoginAttempts" min="1" max="10" value="5">
                             </div>
                         </div>
+                        <div class="row mt-2">
+                            <div class="col-md-6">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="gssapiEnabled">
+                                    <label class="form-check-label" for="gssapiEnabled">
+                                        Enable GSSAPI/Kerberos Authentication
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="oauthEnabled">
+                                    <label class="form-check-label" for="oauthEnabled">
+                                        Enable OAuth Authentication
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     
                     <div class="mb-3">
@@ -443,6 +461,8 @@ function displayCurrentConfig(config) {
     html += `<li><strong>User Login:</strong> ${config.auth?.allow_user_login ? 'Enabled' : 'Disabled'}</li>`;
     html += `<li><strong>JWT Lifetime:</strong> ${config.auth?.jwt_lifetime_hours || 1} hours</li>`;
     html += `<li><strong>Max Login Attempts:</strong> ${config.auth?.max_login_attempts || 5}</li>`;
+    html += `<li><strong>GSSAPI/Kerberos:</strong> ${config.auth?.gssapi_enabled !== false ? 'Enabled' : 'Disabled'}</li>`;
+    html += `<li><strong>OAuth:</strong> ${config.auth?.oauth_enabled !== false ? 'Enabled' : 'Disabled'}</li>`;
     html += '</ul></div>';
     
     // Application section
@@ -521,6 +541,8 @@ function editConfig() {
     document.getElementById('allowUserLogin').checked = currentConfig.auth?.allow_user_login || false;
     document.getElementById('jwtLifetime').value = currentConfig.auth?.jwt_lifetime_hours || 1;
     document.getElementById('maxLoginAttempts').value = currentConfig.auth?.max_login_attempts || 5;
+    document.getElementById('gssapiEnabled').checked = currentConfig.auth?.gssapi_enabled !== false; // Default to true
+    document.getElementById('oauthEnabled').checked = currentConfig.auth?.oauth_enabled !== false; // Default to true
     document.getElementById('maintenanceMode').checked = currentConfig.app?.maintenance_mode || false;
     document.getElementById('siteName').value = currentConfig.app?.site_name || 'Auth Demo';
     document.getElementById('contactEmail').value = currentConfig.app?.contact_email || 'admin@example.com';
@@ -541,7 +563,9 @@ function saveConfig() {
             allow_registration: document.getElementById('allowRegistration').checked,
             allow_user_login: document.getElementById('allowUserLogin').checked,
             jwt_lifetime_hours: parseInt(document.getElementById('jwtLifetime').value),
-            max_login_attempts: parseInt(document.getElementById('maxLoginAttempts').value)
+            max_login_attempts: parseInt(document.getElementById('maxLoginAttempts').value),
+            gssapi_enabled: document.getElementById('gssapiEnabled').checked,
+            oauth_enabled: document.getElementById('oauthEnabled').checked
         },
         app: {
             maintenance_mode: document.getElementById('maintenanceMode').checked,
@@ -622,6 +646,8 @@ function displayVersionDetails(version) {
     html += `<li><strong>User Login:</strong> ${version.config_data.auth?.allow_user_login ? 'Enabled' : 'Disabled'}</li>`;
     html += `<li><strong>JWT Lifetime:</strong> ${version.config_data.auth?.jwt_lifetime_hours || 1} hours</li>`;
     html += `<li><strong>Max Login Attempts:</strong> ${version.config_data.auth?.max_login_attempts || 5}</li>`;
+    html += `<li><strong>GSSAPI/Kerberos:</strong> ${version.config_data.auth?.gssapi_enabled !== false ? 'Enabled' : 'Disabled'}</li>`;
+    html += `<li><strong>OAuth:</strong> ${version.config_data.auth?.oauth_enabled !== false ? 'Enabled' : 'Disabled'}</li>`;
     html += '</ul></div>';
     
     // Application section

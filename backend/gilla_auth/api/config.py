@@ -118,10 +118,69 @@ class ConfigService:
         else:
             config_data = ConfigService.get_default_config()
         
+        # Dynamically populate GSSAPI realms and OAuth providers
+        config_data = ConfigService._populate_dynamic_config(config_data)
+        
         # Cache the result
         ConfigService._set_cache(config_data)
         
         return config_data
+    
+    @staticmethod
+    def _populate_dynamic_config(config_data):
+        """Populate dynamic configuration data from database."""
+        try:
+            # Import models here to avoid circular imports
+            from .model import GSSAPIRealm, OAuthProvider
+            
+            # Populate GSSAPI realms if enabled
+            if config_data.get("auth", {}).get("gssapi_enabled", True):
+                gssapi_realms = []
+                realms = GSSAPIRealm.query.filter_by(is_active=True).all()
+                for realm in realms:
+                    gssapi_realms.append({
+                        "id": realm.id,
+                        "name": realm.name,
+                        "realm": realm.realm,
+                        "display_name": realm.name.replace("_", " ").title(),
+                        "default_realm": realm.default_realm
+                    })
+                config_data["gssapi_realms"] = gssapi_realms
+            
+            # Populate OAuth providers if enabled
+            if config_data.get("auth", {}).get("oauth_enabled", True):
+                oauth_providers = []
+                providers = OAuthProvider.query.filter_by(is_active=True).all()
+                for provider in providers:
+                    oauth_providers.append({
+                        "id": provider.id,
+                        "name": provider.name,
+                        "display_name": provider.name.title(),
+                        "icon": f"fab fa-{provider.name}",
+                        "color": ConfigService._get_provider_color(provider.name)
+                    })
+                config_data["oauth_providers"] = oauth_providers
+                
+        except Exception as e:
+            print(f"Error populating dynamic config: {e}")
+            # Fallback to empty lists if there's an error
+            config_data["gssapi_realms"] = []
+            config_data["oauth_providers"] = []
+        
+        return config_data
+    
+    @staticmethod
+    def _get_provider_color(provider_name):
+        """Get display color for OAuth provider."""
+        colors = {
+            'google': '#4285f4',
+            'github': '#333',
+            'facebook': '#1877f2',
+            'twitter': '#1da1f2',
+            'linkedin': '#0077b5',
+            'microsoft': '#00a4ef'
+        }
+        return colors.get(provider_name.lower(), '#6c757d')
     
     @staticmethod
     def get_default_config():
@@ -131,13 +190,17 @@ class ConfigService:
                 "allow_registration": True,
                 "allow_user_login": True,
                 "jwt_lifetime_hours": 1,
-                "max_login_attempts": 5
+                "max_login_attempts": 5,
+                "gssapi_enabled": True,
+                "oauth_enabled": True
             },
             "app": {
                 "maintenance_mode": False,
                 "site_name": "Auth Demo",
                 "contact_email": "admin@example.com"
-            }
+            },
+            "gssapi_realms": [],
+            "oauth_providers": []
         }
     
     @staticmethod
@@ -154,6 +217,11 @@ class ConfigService:
                 return default
         
         return current
+    
+    @staticmethod
+    def get_jwt_lifetime_hours():
+        """Get JWT lifetime in hours from configuration."""
+        return ConfigService.get_config_value('auth.jwt_lifetime_hours', 1)
     
     @staticmethod
     def create_new_version(config_data, description, user_id):
@@ -566,8 +634,12 @@ def get_auth_config():
         public_config = {
             'auth': {
                 'allow_registration': config.get('auth', {}).get('allow_registration', True),
-                'allow_user_login': config.get('auth', {}).get('allow_user_login', True)
-            }
+                'allow_user_login': config.get('auth', {}).get('allow_user_login', True),
+                'gssapi_enabled': config.get('auth', {}).get('gssapi_enabled', True),
+                'oauth_enabled': config.get('auth', {}).get('oauth_enabled', True)
+            },
+            'gssapi_realms': config.get('gssapi_realms', []),
+            'oauth_providers': config.get('oauth_providers', [])
         }
         
         return jsonify({
