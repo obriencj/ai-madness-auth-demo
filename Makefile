@@ -3,7 +3,7 @@
 # Detect compose command (podman-compose or docker-compose)
 COMPOSE_CMD := $(shell if command -v podman-compose >/dev/null 2>&1; then echo "podman-compose"; elif command -v docker-compose >/dev/null 2>&1; then echo "docker-compose"; else echo "echo 'Error: Neither podman-compose nor docker-compose found' && exit 1"; fi)
 
-.PHONY: help build start stop restart logs clean status
+.PHONY: help build start stop restart logs clean status requirements
 
 # Default target
 help:
@@ -15,6 +15,7 @@ help:
 	@echo "  logs    - View application logs"
 	@echo "  status  - Show service status"
 	@echo "  clean   - Stop and remove all containers, networks, and volumes"
+	@echo "  requirements - Generate backend requirements.txt from setup.cfg"
 	@echo ""
 	@echo "Using: $(COMPOSE_CMD)"
 
@@ -66,5 +67,6 @@ clean:
 	@echo "Cleaning up all containers, networks, and volumes..."
 	$(COMPOSE_CMD) down -v --remove-orphans
 	@echo "Cleanup completed!"
+
 
 # The end.
