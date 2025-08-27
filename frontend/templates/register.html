@@ -12,6 +12,20 @@
                     <h3 class="text-center">Create Account</h3>
                 </div>
                 <div class="card-body">
+                    <!-- Debug Info -->
+                    {% if config %}
+                    <div class="alert alert-info">
+                        <small>
+                            <strong>Debug:</strong><br>
+                            Config keys: {{ config.keys() | list }}<br>
+                            Auth keys: {{ config.auth.keys() | list if config.auth else 'No auth' }}<br>
+                            GSSAPI enabled: {{ config.auth.gssapi_enabled if config.auth else 'No auth' }}<br>
+                            GSSAPI realms count: {{ config.gssapi_realms | length if config.gssapi_realms else 0 }}<br>
+                            GSSAPI realms: {{ config.gssapi_realms | list if config.gssapi_realms else 'None' }}
+                        </small>
+                    </div>
+                    {% endif %}
+                    
                     <!-- GSSAPI Login Options -->
                     {% if config.auth and config.auth.gssapi_enabled and config.gssapi_realms %}
                     <div class="mb-4">
@@ -26,6 +40,16 @@
                             </a>
                             {% endfor %}
                         </div>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning">
+                        <small>
+                            <strong>GSSAPI Debug:</strong><br>
+                            {% if not config %}No config loaded{% endif %}
+                            {% if config and not config.auth %}No auth section in config{% endif %}
+                            {% if config and config.auth and not config.auth.gssapi_enabled %}GSSAPI disabled{% endif %}
+                            {% if config and config.auth and config.auth.gssapi_enabled and not config.gssapi_realms %}No GSSAPI realms{% endif %}
+                        </small>
                     </div>
                     {% endif %}
                     

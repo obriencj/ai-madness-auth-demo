@@ -18,6 +18,7 @@ from datetime import datetime, timedelta
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from .model import db, AppConfigVersion, User
+from .utils import get_provider_color
 
 # Create blueprints
 config_bp = Blueprint('config', __name__, url_prefix='/api/v1/admin')
@@ -137,6 +138,7 @@ class ConfigService:
             if config_data.get("auth", {}).get("gssapi_enabled", True):
                 gssapi_realms = []
                 realms = GSSAPIRealm.query.filter_by(is_active=True).all()
+                print(f"Config: Found {len(realms)} active GSSAPI realms in database")
                 for realm in realms:
                     gssapi_realms.append({
                         "id": realm.id,
@@ -146,20 +148,29 @@ class ConfigService:
                         "default_realm": realm.default_realm
                     })
                 config_data["gssapi_realms"] = gssapi_realms
+                print(f"Config: Populated {len(gssapi_realms)} GSSAPI realms in config")
+            else:
+                print(f"Config: GSSAPI is disabled, not populating realms")
+                config_data["gssapi_realms"] = []
             
             # Populate OAuth providers if enabled
             if config_data.get("auth", {}).get("oauth_enabled", True):
                 oauth_providers = []
                 providers = OAuthProvider.query.filter_by(is_active=True).all()
+                print(f"Config: Found {len(providers)} active OAuth providers in database")
                 for provider in providers:
                     oauth_providers.append({
                         "id": provider.id,
                         "name": provider.name,
                         "display_name": provider.name.title(),
                         "icon": f"fab fa-{provider.name}",
-                        "color": ConfigService._get_provider_color(provider.name)
+                        "color": get_provider_color(provider.name)
                     })
                 config_data["oauth_providers"] = oauth_providers
+                print(f"Config: Populated {len(oauth_providers)} OAuth providers in config")
+            else:
+                print(f"Config: OAuth is disabled, not populating providers")
+                config_data["oauth_providers"] = []
                 
         except Exception as e:
             print(f"Error populating dynamic config: {e}")
@@ -169,18 +180,7 @@ class ConfigService:
         
         return config_data
     
-    @staticmethod
-    def _get_provider_color(provider_name):
-        """Get display color for OAuth provider."""
-        colors = {
-            'google': '#4285f4',
-            'github': '#333',
-            'facebook': '#1877f2',
-            'twitter': '#1da1f2',
-            'linkedin': '#0077b5',
-            'microsoft': '#00a4ef'
-        }
-        return colors.get(provider_name.lower(), '#6c757d')
+
     
     @staticmethod
     def get_default_config():
@@ -308,49 +308,43 @@ def get_config():
     return ConfigService.get_active_config()
 
 
-def get_config_value(key_path, default=None):
-    """Get a specific configuration value."""
-    return ConfigService.get_config_value(key_path, default)
+
 
 
 def is_registration_allowed():
     """Check if user registration is allowed."""
-    return get_config_value('auth.allow_registration', True)
+    return ConfigService.get_config_value('auth.allow_registration', True)
 
 
 def is_user_login_allowed():
     """Check if non-admin user login is allowed."""
-    return get_config_value('auth.allow_user_login', True)
+    return ConfigService.get_config_value('auth.allow_user_login', True)
 
 
-def get_jwt_lifetime_hours():
-    """Get JWT token lifetime in hours."""
-    return get_config_value('auth.jwt_lifetime_hours', 1)
+
 
 
 def get_max_login_attempts():
     """Get maximum login attempts allowed."""
-    return get_config_value('auth.max_login_attempts', 5)
+    return ConfigService.get_config_value('auth.max_login_attempts', 5)
 
 
 def is_maintenance_mode():
     """Check if the application is in maintenance mode."""
-    return get_config_value('app.maintenance_mode', False)
+    return ConfigService.get_config_value('app.maintenance_mode', False)
 
 
 def get_site_name():
     """Get the site name."""
-    return get_config_value('app.site_name', 'Auth Demo')
+    return ConfigService.get_config_value('app.site_name', 'Auth Demo')
 
 
 def get_contact_email():
     """Get the contact email."""
-    return get_config_value('app.contact_email', 'admin@example.com')
+    return ConfigService.get_config_value('app.contact_email', 'admin@example.com')
 
 
-def refresh_config_cache():
-    """Manually refresh the configuration cache."""
-    return ConfigService.refresh_cache()
+
 
 
 # ============================================================================
@@ -641,6 +635,10 @@ def get_auth_config():
             'gssapi_realms': config.get('gssapi_realms', []),
             'oauth_providers': config.get('oauth_providers', [])
         }
+        
+        print(f"Public Config: Returning config with {len(public_config.get('gssapi_realms', []))} GSSAPI realms and {len(public_config.get('oauth_providers', []))} OAuth providers")
+        print(f"Public Config: GSSAPI enabled: {public_config['auth'].get('gssapi_enabled')}")
+        print(f"Public Config: OAuth enabled: {public_config['auth'].get('oauth_enabled')}")
         
         return jsonify({
             'config': public_config,

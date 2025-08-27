@@ -17,6 +17,7 @@ import requests
 from flask import jsonify, session, request, Blueprint
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from .model import db, User, OAuthProvider, OAuthAccount
+from .utils import generate_unique_username
 
 
 def get_oauth_provider_config(provider_name):
@@ -129,7 +130,8 @@ def _find_or_create_oauth_user(provider, user_info, token_data):
             return user
 
     # Create new user
-    username = _generate_unique_username(user_info)
+            base_username = user_info.get('login', user_info.get('name', 'user'))
+        username = generate_unique_username(base_username)
     email = user_info.get('email', f"{username}@{provider}.oauth")
 
     new_user = User(
@@ -150,18 +152,7 @@ def _find_or_create_oauth_user(provider, user_info, token_data):
         return None
 
 
-def _generate_unique_username(user_info):
-    """Generate unique username from OAuth user info"""
-    base_username = user_info.get('login', user_info.get('name', 'user'))
-    base_username = ''.join(c for c in base_username if c.isalnum() or c in '._-')
 
-    counter = 1
-    username = base_username
-    while User.query.filter_by(username=username).first():
-        username = f"{base_username}{counter}"
-        counter += 1
-
-    return username
 
 
 def _store_oauth_account(user_id, provider, user_info, token_data):
@@ -199,17 +190,7 @@ def _store_oauth_account(user_id, provider, user_info, token_data):
         print(f"Error storing OAuth account: {e}")
 
 
-def _get_provider_color(provider_name):
-    """Get display color for OAuth provider"""
-    colors = {
-        'google': '#4285f4',
-        'github': '#333',
-        'facebook': '#1877f2',
-        'twitter': '#1da1f2',
-        'linkedin': '#0077b5',
-        'microsoft': '#00a4ef'
-    }
-    return colors.get(provider_name.lower(), '#6c757d')
+
 
 
 def handle_oauth_authorize(provider, redirect_uri):
@@ -272,7 +253,7 @@ def handle_oauth_callback(provider, code, error):
     jti = token_data_jwt['jti']
     
     # Create session record
-    from .utils import create_jwt_session
+    from .jwt import create_jwt_session
     create_jwt_session(jti, user.id, f'oauth_{provider}')
 
     # Store OAuth account information

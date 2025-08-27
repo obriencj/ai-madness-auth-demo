@@ -21,6 +21,7 @@ from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identi
 from .model import db, User, GSSAPIRealm, GSSAPIAccount
 from .crypto import KeytabEncryption
 from .keytab_cache import get_keytab_cache
+from .utils import generate_unique_username
 
 try:
     import gssapi
@@ -98,19 +99,25 @@ def create_temp_keytab_file(realm_config):
 
 def get_gssapi_realm_config(realm_name=None):
     """Get GSSAPI realm configuration from database"""
+    print(f"GSSAPI Realm Config: Looking for realm: {realm_name}")
+    
     if realm_name:
         realm = GSSAPIRealm.query.filter_by(
             name=realm_name, is_active=True
         ).first()
+        print(f"GSSAPI Realm Config: Found realm by name '{realm_name}': {realm.name if realm else 'None'}")
     else:
         # Get default realm
         realm = GSSAPIRealm.query.filter_by(
             default_realm=True, is_active=True
         ).first()
+        print(f"GSSAPI Realm Config: Found default realm: {realm.name if realm else 'None'}")
     
     if not realm:
+        print(f"GSSAPI Realm Config: No realm found")
         return None
     
+    print(f"GSSAPI Realm Config: Returning realm: {realm.name} (ID: {realm.id})")
     return {
         'id': realm.id,
         'name': realm.name,
@@ -127,10 +134,15 @@ def get_gssapi_realm_config(realm_name=None):
 def authenticate_gssapi_user(principal_name, realm_name=None):
     """Authenticate user via GSSAPI/Kerberos"""
     try:
+        print(f"GSSAPI Auth User: Starting authentication for principal: {principal_name}, realm: {realm_name}")
+        
         # Get realm configuration
         realm_config = get_gssapi_realm_config(realm_name)
         if not realm_config:
+            print(f"GSSAPI Auth User: No realm config found for realm: {realm_name}")
             return None, "GSSAPI realm not found or inactive"
+
+        print(f"GSSAPI Auth User: Found realm config: {realm_config['name']} (ID: {realm_config['id']})")
 
         # Find existing GSSAPI account
         gssapi_account = GSSAPIAccount.query.filter_by(
@@ -139,22 +151,28 @@ def authenticate_gssapi_user(principal_name, realm_name=None):
         ).first()
 
         if gssapi_account:
+            print(f"GSSAPI Auth User: Found existing GSSAPI account for user: {gssapi_account.user.username}")
             return gssapi_account.user, None
+
+        print(f"GSSAPI Auth User: No existing GSSAPI account found")
 
         # Try to find user by extracting username from principal
         username = principal_name.split('@')[0] if '@' in principal_name else principal_name
         user = User.query.filter_by(username=username).first()
         
         if user:
+            print(f"GSSAPI Auth User: Found existing user: {user.username}, linking GSSAPI account")
             # Link existing user to GSSAPI account
             _link_gssapi_account(user.id, realm_config['id'], principal_name)
             return user, None
 
+        print(f"GSSAPI Auth User: No existing user found, creating new user")
         # Create new user from GSSAPI principal
         user = _create_gssapi_user(principal_name, realm_config['id'])
         return user, None
 
     except Exception as e:
+        print(f"GSSAPI Auth User: Exception: {e}")
         return None, f"GSSAPI authentication error: {str(e)}"
 
 
@@ -165,7 +183,7 @@ def _create_gssapi_user(principal_name, realm_id):
     email = f"{username}@gssapi.local"  # Placeholder email for GSSAPI users
     
     # Generate unique username if needed
-    username = _generate_unique_username(username)
+    username = generate_unique_username(username)
     
     new_user = User(
         username=username,
@@ -217,17 +235,7 @@ def _link_gssapi_account(user_id, realm_id, principal_name):
         print(f"Error linking GSSAPI account: {e}")
 
 
-def _generate_unique_username(base_username):
-    """Generate unique username from GSSAPI principal"""
-    base_username = ''.join(c for c in base_username if c.isalnum() or c in '._-')
 
-    counter = 1
-    username = base_username
-    while User.query.filter_by(username=username).first():
-        username = f"{base_username}{counter}"
-        counter += 1
-
-    return username
 
 
 def get_gssapi_realms_list():
@@ -258,19 +266,27 @@ def gssapi_authenticate():
     """Handle GSSAPI authentication request"""
     try:
         data = request.get_json()
+        print(f"Backend GSSAPI Auth: Received data: {data}")
+        
         if not data or not data.get('principal_name'):
             return jsonify({'error': 'Missing principal_name parameter'}), 400
 
         principal_name = data['principal_name']
         realm_name = data.get('realm_name')  # Optional, will use default if not specified
 
+        print(f"Backend GSSAPI Auth: Authenticating principal: {principal_name}, realm: {realm_name}")
+
         # Authenticate user
         user, error_msg = authenticate_gssapi_user(principal_name, realm_name)
         if error_msg:
+            print(f"Backend GSSAPI Auth: Authentication failed: {error_msg}")
             return jsonify({'error': error_msg}), 400
 
         if not user:
+            print(f"Backend GSSAPI Auth: No user returned from authentication")
             return jsonify({'error': 'Failed to authenticate user'}), 500
+
+        print(f"Backend GSSAPI Auth: User authenticated: {user.username} (ID: {user.id})")
 
         # Create JWT token
         access_token = create_access_token(identity=user.username)
@@ -281,8 +297,10 @@ def gssapi_authenticate():
         jti = token_data_jwt['jti']
         
         # Create session record
-        from .utils import create_jwt_session
+        from .jwt import create_jwt_session
         create_jwt_session(jti, user.id, 'gssapi')
+
+        print(f"Backend GSSAPI Auth: JWT token created and session recorded")
 
         return jsonify({
             'access_token': access_token,
@@ -295,12 +313,18 @@ def gssapi_authenticate():
         }), 200
 
     except Exception as e:
+        print(f"Backend GSSAPI Auth: Exception: {e}")
         return jsonify({'error': f'GSSAPI authentication error: {str(e)}'}), 500
 
 
 @gssapi_bp.route('/realms', methods=['GET'])
 def get_gssapi_realms():
     """Get list of available GSSAPI realms"""
+    print(f"GSSAPI Realms: Listing all realms")
+    realms = GSSAPIRealm.query.all()
+    print(f"GSSAPI Realms: Found {len(realms)} total realms")
+    for realm in realms:
+        print(f"GSSAPI Realms: - {realm.name} (active: {realm.is_active}, default: {realm.default_realm})")
     return get_gssapi_realms_list()
 
 
@@ -437,12 +461,12 @@ def update_gssapi_realm(realm_id):
                 return jsonify({'error': 'Invalid keytab_data format. Must be base64 encoded.'}), 400
             
             # Validate keytab format
-            is_valid_format, format_msg = validate_keytab_format(keytab_data)
+            crypto = KeytabEncryption()
+            is_valid_format, format_msg = crypto.validate_keytab_format(keytab_data)
             if not is_valid_format:
                 return jsonify({'error': f'Keytab validation failed: {format_msg}'}), 400
             
             # Encrypt the new keytab
-            crypto = KeytabEncryption()
             encrypted_result = crypto.encrypt_keytab(keytab_data)
             
             realm.encrypted_keytab = encrypted_result['encrypted_data']

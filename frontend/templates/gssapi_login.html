@@ -111,8 +111,8 @@ document.getElementById('gssapiForm').addEventListener('submit', function(e) {
         authData.realm_name = realmName;
     }
     
-    // Make authentication request
-    fetch('/api/v1/auth/gssapi/authenticate', {
+    // Make authentication request to frontend route
+    fetch('/gssapi/authenticate', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -123,11 +123,25 @@ document.getElementById('gssapiForm').addEventListener('submit', function(e) {
     .then(data => {
         loadingModal.hide();
         
-        if (data.access_token) {
-            // Store token and user data
-            sessionStorage.setItem('access_token', data.access_token);
-            sessionStorage.setItem('user', JSON.stringify(data.user));
-            sessionStorage.setItem('is_admin', data.user.is_admin);
+        if (data.success) {
+            // Set authentication token as cookie if provided
+            if (data.token) {
+                // Set secure cookie with appropriate options
+                const cookieOptions = [
+                    `token=${data.token}`,
+                    'path=/',
+                    'secure',
+                    'samesite=strict'
+                ];
+                
+                // Add expiration if provided, otherwise use session cookie
+                if (data.expires) {
+                    const expires = new Date(data.expires);
+                    cookieOptions.push(`expires=${expires.toUTCString()}`);
+                }
+                
+                document.cookie = cookieOptions.join('; ');
+            }
             
             // Show success message and redirect
             showAlert('GSSAPI authentication successful!', 'success');

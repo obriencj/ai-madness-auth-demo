@@ -148,8 +148,13 @@ def login():
         if config_response.status_code == 200:
             config = config_response.json().get('config', {})
             print(f"Login: Loaded configuration with OAuth enabled: {config.get('auth', {}).get('oauth_enabled', True)}")
+            print(f"Login: Loaded configuration with GSSAPI enabled: {config.get('auth', {}).get('gssapi_enabled', True)}")
             if config.get('auth', {}).get('oauth_enabled', True) and config.get('oauth_providers'):
                 print(f"Login: Found {len(config['oauth_providers'])} OAuth providers in config")
+            if config.get('auth', {}).get('gssapi_enabled', True) and config.get('gssapi_realms'):
+                print(f"Login: Found {len(config['gssapi_realms'])} GSSAPI realms in config")
+            else:
+                print(f"Login: GSSAPI realms in config: {config.get('gssapi_realms', [])}")
         else:
             print(f"Login: Failed to load configuration, status: {config_response.status_code}")
     except requests.RequestException as e:
@@ -539,7 +544,67 @@ def gssapi_login():
         flash('Connection error', 'error')
         return redirect(url_for('login'))
     
-    return render_template('gssapi_login.html')
+    return render_template('gssapi_login.html', config=config)
+
+
+@app.route('/gssapi/authenticate', methods=['POST'])
+def gssapi_authenticate():
+    """Handle GSSAPI authentication request"""
+    try:
+        data = request.get_json()
+        print(f"GSSAPI Auth: Received data: {data}")
+        
+        if not data or not data.get('principal_name'):
+            return jsonify({'error': 'Missing principal_name parameter'}), 400
+        
+        principal_name = data.get('principal_name')
+        realm_name = data.get('realm_name')
+        
+        print(f"GSSAPI Auth: Authenticating principal: {principal_name}, realm: {realm_name}")
+        
+        # Make request to backend GSSAPI authenticate endpoint
+        auth_data = {
+            'principal_name': principal_name
+        }
+        if realm_name:
+            auth_data['realm_name'] = realm_name
+        
+        print(f"GSSAPI Auth: Sending to backend: {auth_data}")
+        
+        response = requests.post(
+            f'{BACKEND_URL}/api/v1/auth/gssapi/authenticate',
+            json=auth_data
+        )
+        
+        print(f"GSSAPI Auth: Backend response status: {response.status_code}")
+        print(f"GSSAPI Auth: Backend response: {response.text}")
+        
+        if response.status_code == 200:
+            data = response.json()
+            
+            # Set session cookies for the authenticated user
+            session['access_token'] = data['access_token']
+            session['user'] = data['user']
+            session['is_admin'] = data['user']['is_admin']
+            
+            print(f"GSSAPI Auth: Session set - access_token: {bool(session.get('access_token'))}, user: {bool(session.get('user'))}, is_admin: {session.get('is_admin')}")
+            
+            return jsonify({
+                'success': True,
+                'access_token': data['access_token'],
+                'user': data['user']
+            }), 200
+        else:
+            error_data = response.json()
+            print(f"GSSAPI Auth: Backend error: {error_data}")
+            return jsonify({'error': error_data.get('error', 'GSSAPI authentication failed')}), 400
+            
+    except requests.RequestException as e:
+        print(f"GSSAPI Auth: Request exception: {e}")
+        return jsonify({'error': 'Connection error during authentication'}), 500
+    except Exception as e:
+        print(f"GSSAPI Auth: General exception: {e}")
+        return jsonify({'error': f'Authentication error: {str(e)}'}), 500
 
 # GSSAPI Admin Routes
 @app.route('/admin/gssapi-realms')
@@ -840,8 +905,13 @@ def register():
         if config_response.status_code == 200:
             config = config_response.json().get('config', {})
             print(f"Register: Loaded configuration with OAuth enabled: {config.get('auth', {}).get('oauth_enabled', True)}")
+            print(f"Register: Loaded configuration with GSSAPI enabled: {config.get('auth', {}).get('gssapi_enabled', True)}")
             if config.get('auth', {}).get('oauth_enabled', True) and config.get('oauth_providers'):
                 print(f"Register: Found {len(config['oauth_providers'])} OAuth providers in config")
+            if config.get('auth', {}).get('gssapi_enabled', True) and config.get('gssapi_realms'):
+                print(f"Register: Found {len(config['gssapi_realms'])} GSSAPI realms in config")
+            else:
+                print(f"Register: GSSAPI realms in config: {config.get('gssapi_realms', [])}")
         else:
             print(f"Register: Failed to load configuration, status: {config_response.status_code}")
     except requests.RequestException as e:
