@@ -67,6 +67,54 @@
                     
                     <hr class="my-4">
                     
+                    <!-- GSSAPI Accounts -->
+                    <div class="mb-4">
+                        <h5 class="card-title">
+                            <i class="fas fa-key me-2"></i>
+                            Connected Kerberos Accounts
+                        </h5>
+                        
+                        {% if account.gssapi_accounts %}
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Realm</th>
+                                            <th>Principal Name</th>
+                                            <th>Connected Since</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for gssapi_account in account.gssapi_accounts %}
+                                        <tr>
+                                            <td>
+                                                <span class="badge bg-primary">
+                                                    <i class="fas fa-shield-alt me-1"></i>
+                                                    {{ gssapi_account.realm_display_name }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <code>{{ gssapi_account.principal_name }}</code>
+                                            </td>
+                                            <td>
+                                                {% if gssapi_account.created_at %}
+                                                    {{ gssapi_account.created_at.split('T')[0] }}
+                                                {% else %}
+                                                    Unknown
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <p class="text-muted">No Kerberos accounts connected.</p>
+                        {% endif %}
+                    </div>
+                    
+                    <hr class="my-4">
+                    
                     <!-- OAuth Accounts -->
                     <div class="mb-4">
                         <h5 class="card-title">
@@ -175,6 +223,12 @@
                             </span>
                             {% endif %}
                             
+                            {% for gssapi_account in account.gssapi_accounts %}
+                            <span class="badge bg-primary">
+                                <i class="fas fa-shield-alt me-1"></i>Kerberos ({{ gssapi_account.realm_display_name }})
+                            </span>
+                            {% endfor %}
+                            
                             {% for oauth_account in account.oauth_accounts %}
                             <span class="badge bg-info">
                                 <i class="fab fa-{{ oauth_account.provider.lower() }} me-1"></i>
@@ -182,7 +236,7 @@
                             </span>
                             {% endfor %}
                             
-                            {% if not account.has_password and not account.oauth_accounts %}
+                            {% if not account.has_password and not account.oauth_accounts and not account.gssapi_accounts %}
                             <span class="badge bg-warning">
                                 <i class="fas fa-exclamation-triangle me-1"></i>No Authentication
                             </span>

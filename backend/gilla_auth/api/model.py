@@ -41,6 +41,11 @@ class User(db.Model):
             password.encode('utf-8'), self.password_hash.encode('utf-8')
         )
 
+    @property
+    def has_password(self):
+        """Check if user has a password set."""
+        return self.password_hash is not None
+
     def __repr__(self):
         return f'<User {self.username}>'
 
