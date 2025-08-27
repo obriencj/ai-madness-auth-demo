@@ -233,6 +233,88 @@ def _link_gssapi_account(user_id, realm_id, principal_name):
     except Exception as e:
         db.session.rollback()
         print(f"Error linking GSSAPI account: {e}")
+        return None
+
+
+def validate_gssapi_token(gssapi_token, realm_name=None):
+    """Validate GSSAPI token and extract principal name"""
+    if not GSSAPI_AVAILABLE:
+        return None, "GSSAPI library not available"
+    
+    try:
+        # Get realm configuration
+        realm_config = get_gssapi_realm_config(realm_name)
+        if not realm_config:
+            return None, "GSSAPI realm not found or inactive"
+
+        print(f"GSSAPI Token Validation: Using realm: {realm_config['name']}")
+
+        # Create temporary keytab file for GSSAPI operations
+        temp_keytab_path = create_temp_keytab_file(realm_config)
+        
+        try:
+            # Decode the GSSAPI token (assuming it's base64 encoded)
+            try:
+                token_data = base64.b64decode(gssapi_token)
+            except Exception:
+                return None, "Invalid GSSAPI token format (not base64 encoded)"
+
+            # Create GSSAPI acceptor credentials from keytab
+            service_name = gssapi.Name(
+                realm_config['service_principal'], 
+                name_type=gssapi.NameType.kerberos_principal
+            )
+            
+            acceptor_creds = gssapi.Credentials(
+                name=service_name, 
+                usage='accept', 
+                store={'keytab': temp_keytab_path}
+            )
+            
+            if not acceptor_creds:
+                return None, f"Failed to acquire acceptor credentials from keytab for {realm_config['service_principal']}"
+
+            # Create GSSAPI security context
+            ctx = gssapi.SecurityContext(
+                creds=acceptor_creds,
+                usage='accept'
+            )
+
+            # Process the GSSAPI token
+            try:
+                # Accept the security context using the client's token
+                ctx.step(token_data)
+                
+                if not ctx.complete:
+                    return None, "GSSAPI security context negotiation incomplete"
+                
+                # Extract the client's principal name
+                client_name = ctx.initiator_name
+                if not client_name:
+                    return None, "Could not extract client principal from GSSAPI context"
+                
+                # Convert to string format
+                principal_name = str(client_name)
+                print(f"GSSAPI Token Validation: Successfully validated token for principal: {principal_name}")
+                
+                return principal_name, None
+                
+            except gssapi.exceptions.GSSError as e:
+                return None, f"GSSAPI token validation failed: {str(e)}"
+                
+        finally:
+            # Clean up temporary keytab file
+            try:
+                os.unlink(temp_keytab_path)
+            except OSError:
+                pass  # File might already be deleted
+                
+    except Exception as e:
+        print(f"GSSAPI Token Validation: Exception: {e}")
+        return None, f"GSSAPI token validation error: {str(e)}"
+
+
+
 
 
 
@@ -263,23 +345,35 @@ gssapi_bp = Blueprint('gssapi', __name__, url_prefix='/api/v1/auth/gssapi')
 
 @gssapi_bp.route('/authenticate', methods=['POST'])
 def gssapi_authenticate():
-    """Handle GSSAPI authentication request"""
+    """Handle GSSAPI authentication request from frontend or API clients"""
     try:
         data = request.get_json()
         print(f"Backend GSSAPI Auth: Received data: {data}")
         
-        if not data or not data.get('principal_name'):
-            return jsonify({'error': 'Missing principal_name parameter'}), 400
+        if not data or not data.get('gssapi_token'):
+            return jsonify({'error': 'Missing gssapi_token parameter'}), 400
 
-        principal_name = data['principal_name']
+        gssapi_token = data['gssapi_token']
         realm_name = data.get('realm_name')  # Optional, will use default if not specified
 
-        print(f"Backend GSSAPI Auth: Authenticating principal: {principal_name}, realm: {realm_name}")
+        print(f"Backend GSSAPI Auth: Authenticating with GSSAPI token, realm: {realm_name}")
 
-        # Authenticate user
+        # Validate GSSAPI token and extract principal
+        principal_name, error_msg = validate_gssapi_token(gssapi_token, realm_name)
+        if error_msg:
+            print(f"Backend GSSAPI Auth: GSSAPI token validation failed: {error_msg}")
+            return jsonify({'error': error_msg}), 400
+
+        if not principal_name:
+            print(f"Backend GSSAPI Auth: No principal extracted from GSSAPI token")
+            return jsonify({'error': 'Failed to extract principal from GSSAPI token'}), 500
+
+        print(f"Backend GSSAPI Auth: Principal extracted: {principal_name}")
+
+        # Authenticate user based on verified principal
         user, error_msg = authenticate_gssapi_user(principal_name, realm_name)
         if error_msg:
-            print(f"Backend GSSAPI Auth: Authentication failed: {error_msg}")
+            print(f"Backend GSSAPI Auth: User authentication failed: {error_msg}")
             return jsonify({'error': error_msg}), 400
 
         if not user:
@@ -315,6 +409,74 @@ def gssapi_authenticate():
     except Exception as e:
         print(f"Backend GSSAPI Auth: Exception: {e}")
         return jsonify({'error': f'GSSAPI authentication error: {str(e)}'}), 500
+
+
+@gssapi_bp.route('/negotiate', methods=['GET', 'POST'])
+def gssapi_negotiate():
+    """Handle direct GSSAPI negotiation for CLI clients"""
+    try:
+        # Check for Authorization header with Negotiate scheme
+        auth_header = request.headers.get('Authorization')
+        if not auth_header or not auth_header.startswith('Negotiate '):
+            # Return 401 with WWW-Authenticate header to initiate negotiation
+            return jsonify({'error': 'GSSAPI negotiation required'}), 401, {'WWW-Authenticate': 'Negotiate'}
+            
+        # Extract the GSSAPI token from the Authorization header
+        gssapi_token = auth_header[10:]  # Remove 'Negotiate ' prefix
+        
+        print(f"Backend GSSAPI Negotiate: Received token from Authorization header")
+        
+        # Validate GSSAPI token and extract principal
+        principal_name, error_msg = validate_gssapi_token(gssapi_token)
+        if error_msg:
+            print(f"Backend GSSAPI Negotiate: GSSAPI token validation failed: {error_msg}")
+            return jsonify({'error': error_msg}), 401, {'WWW-Authenticate': 'Negotiate'}
+
+        if not principal_name:
+            print(f"Backend GSSAPI Negotiate: No principal extracted from GSSAPI token")
+            return jsonify({'error': 'Failed to extract principal from GSSAPI token'}), 401, {'WWW-Authenticate': 'Negotiate'}
+
+        print(f"Backend GSSAPI Negotiate: Principal extracted: {principal_name}")
+
+        # Authenticate user based on verified principal
+        user, error_msg = authenticate_gssapi_user(principal_name)
+        if error_msg:
+            print(f"Backend GSSAPI Negotiate: User authentication failed: {error_msg}")
+            return jsonify({'error': error_msg}), 401, {'WWW-Authenticate': 'Negotiate'}
+
+        if not user:
+            print(f"Backend GSSAPI Negotiate: No user returned from authentication")
+            return jsonify({'error': 'Failed to authenticate user'}), 401, {'WWW-Authenticate': 'Negotiate'}
+
+        print(f"Backend GSSAPI Negotiate: User authenticated: {user.username} (ID: {user.id})")
+
+        # Create JWT token
+        access_token = create_access_token(identity=user.username)
+        
+        # Get JTI from the token and create session record
+        from flask_jwt_extended import decode_token
+        token_data_jwt = decode_token(access_token)
+        jti = token_data_jwt['jti']
+        
+        # Create session record
+        from .jwt import create_jwt_session
+        create_jwt_session(jti, user.id, 'gssapi_negotiate')
+
+        print(f"Backend GSSAPI Negotiate: JWT token created and session recorded")
+
+        return jsonify({
+            'access_token': access_token,
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'is_admin': user.is_admin
+            }
+        }), 200
+
+    except Exception as e:
+        print(f"Backend GSSAPI Negotiate: Exception: {e}")
+        return jsonify({'error': f'GSSAPI negotiation error: {str(e)}'}), 500, {'WWW-Authenticate': 'Negotiate'}
 
 
 @gssapi_bp.route('/realms', methods=['GET'])

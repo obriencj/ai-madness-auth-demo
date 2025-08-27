@@ -528,7 +528,7 @@ def expire_all_sessions():
 # GSSAPI Routes
 @app.route('/gssapi/login')
 def gssapi_login():
-    """GSSAPI login page"""
+    """ GSSAPI login page """
     # Check if GSSAPI is enabled in configuration
     try:
         config_response = requests.get(f'{BACKEND_URL}/api/v1/auth/config')
@@ -544,68 +544,47 @@ def gssapi_login():
         flash('Connection error', 'error')
         return redirect(url_for('login'))
     
-    return render_template('gssapi_login.html', config=config)
-
-
-@app.route('/gssapi/authenticate', methods=['POST'])
-def gssapi_authenticate():
-    """Handle GSSAPI authentication request"""
-    try:
-        data = request.get_json()
-        print(f"GSSAPI Auth: Received data: {data}")
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Negotiate '):
+        return jsonify({'error': 'GSSAPI authentication token required'}), 401, {'WWW-Authenticate': 'Negotiate'}
         
-        if not data or not data.get('principal_name'):
-            return jsonify({'error': 'Missing principal_name parameter'}), 400
+    # Extract the GSSAPI token from the Authorization header
+    gssapi_token = auth_header[10:]  # Remove 'Negotiate ' prefix
         
-        principal_name = data.get('principal_name')
-        realm_name = data.get('realm_name')
+            # Make request to backend GSSAPI authenticate endpoint
+    auth_data = {
+        'gssapi_token': gssapi_token
+    }
         
-        print(f"GSSAPI Auth: Authenticating principal: {principal_name}, realm: {realm_name}")
+    print(f"GSSAPI Auth: Sending to backend: {auth_data}")
         
-        # Make request to backend GSSAPI authenticate endpoint
-        auth_data = {
-            'principal_name': principal_name
-        }
-        if realm_name:
-            auth_data['realm_name'] = realm_name
+    response = requests.post(
+        f'{BACKEND_URL}/api/v1/auth/gssapi/authenticate',
+        json=auth_data
+    )
         
-        print(f"GSSAPI Auth: Sending to backend: {auth_data}")
+    print(f"GSSAPI Auth: Backend response status: {response.status_code}")
+    print(f"GSSAPI Auth: Backend response: {response.text}")
         
-        response = requests.post(
-            f'{BACKEND_URL}/api/v1/auth/gssapi/authenticate',
-            json=auth_data
-        )
-        
-        print(f"GSSAPI Auth: Backend response status: {response.status_code}")
-        print(f"GSSAPI Auth: Backend response: {response.text}")
-        
-        if response.status_code == 200:
-            data = response.json()
+    if response.status_code == 200:
+        data = response.json()
             
-            # Set session cookies for the authenticated user
-            session['access_token'] = data['access_token']
-            session['user'] = data['user']
-            session['is_admin'] = data['user']['is_admin']
+        # Set session cookies for the authenticated user
+        session['access_token'] = data['access_token']
+        session['user'] = data['user']
+        session['is_admin'] = data['user']['is_admin']
             
-            print(f"GSSAPI Auth: Session set - access_token: {bool(session.get('access_token'))}, user: {bool(session.get('user'))}, is_admin: {session.get('is_admin')}")
+        print(f"GSSAPI Auth: Session set - access_token: {bool(session.get('access_token'))}, user: {bool(session.get('user'))}, is_admin: {session.get('is_admin')}")
             
-            return jsonify({
-                'success': True,
-                'access_token': data['access_token'],
-                'user': data['user']
-            }), 200
-        else:
-            error_data = response.json()
-            print(f"GSSAPI Auth: Backend error: {error_data}")
-            return jsonify({'error': error_data.get('error', 'GSSAPI authentication failed')}), 400
-            
-    except requests.RequestException as e:
-        print(f"GSSAPI Auth: Request exception: {e}")
-        return jsonify({'error': 'Connection error during authentication'}), 500
-    except Exception as e:
-        print(f"GSSAPI Auth: General exception: {e}")
-        return jsonify({'error': f'Authentication error: {str(e)}'}), 500
-
+        # Redirect to dashboard on successful authentication
+        flash('GSSAPI authentication successful!', 'success')
+        return redirect(url_for('dashboard'))
+    else:
+        error_data = response.json()
+        print(f"GSSAPI Auth: Backend error: {error_data}")
+        flash(error_data.get('error', 'GSSAPI authentication failed'), 'error')
+        return redirect(url_for('login'))
+    
 # GSSAPI Admin Routes
 @app.route('/admin/gssapi-realms')
 @admin_required

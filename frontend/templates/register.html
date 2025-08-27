@@ -26,30 +26,24 @@
                     </div>
                     {% endif %}
                     
-                    <!-- GSSAPI Login Options -->
+                    <!-- GSSAPI Authentication Info -->
                     {% if config.auth and config.auth.gssapi_enabled and config.gssapi_realms %}
                     <div class="mb-4">
-                        <p class="text-center text-muted">Or sign up with Kerberos:</p>
-                        <div class="d-grid gap-2">
-                            {% for realm in config.gssapi_realms %}
-                            <a href="{{ url_for('gssapi_login') }}?realm={{ realm.name }}" 
-                               class="btn btn-outline-primary">
-                                <i class="fas fa-key me-2"></i>
-                                Continue with {{ realm.display_name }}
-                                {% if realm.default_realm %}<small class="ms-1">(Default)</small>{% endif %}
-                            </a>
-                            {% endfor %}
+                        <div class="alert alert-info">
+                            <h6 class="alert-heading">
+                                <i class="fas fa-key me-2"></i>Kerberos Authentication Available
+                            </h6>
+                            <p class="mb-2">This application supports GSSAPI/Kerberos authentication.</p>
+                            <p class="mb-0 small">
+                                <strong>Available Realms:</strong><br>
+                                {% for realm in config.gssapi_realms %}
+                                • {{ realm.display_name }} ({{ realm.realm }}){% if realm.default_realm %} - Default{% endif %}<br>
+                                {% endfor %}
+                            </p>
                         </div>
-                    </div>
-                    {% else %}
-                    <div class="alert alert-warning">
-                        <small>
-                            <strong>GSSAPI Debug:</strong><br>
-                            {% if not config %}No config loaded{% endif %}
-                            {% if config and not config.auth %}No auth section in config{% endif %}
-                            {% if config and config.auth and not config.auth.gssapi_enabled %}GSSAPI disabled{% endif %}
-                            {% if config and config.auth and config.auth.gssapi_enabled and not config.gssapi_realms %}No GSSAPI realms{% endif %}
-                        </small>
+                        <p class="text-center text-muted small">
+                            Use your browser's Kerberos extension or CLI client to authenticate directly.
+                        </p>
                     </div>
                     {% endif %}
                     
