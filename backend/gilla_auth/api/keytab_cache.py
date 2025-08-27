@@ -21,7 +21,8 @@ from .crypto import KeytabEncryption
 class KeytabCache:
     """Hybrid keytab caching system."""
     
-    def __init__(self, max_memory_size=50, memory_ttl_hours=4, redis_ttl_hours=24):
+
+    def __init__(self, max_memory_size=50, memory_ttl_hours=1, redis_ttl_hours=1):
         """
         Initialize the keytab cache.
         
@@ -44,6 +45,7 @@ class KeytabCache:
         # Encryption for Redis cache
         self.crypto = KeytabEncryption()
     
+
     def _init_redis(self):
         """Initialize Redis connection if available."""
         try:
@@ -56,6 +58,7 @@ class KeytabCache:
             print(f"Redis not available for keytab caching: {e}")
             self.redis_client = None
     
+
     def get_keytab(self, realm_id: int, encrypted_data: bytes, iv: bytes, salt: bytes) -> bytes:
         """
         Get decrypted keytab data, using cache if available.
@@ -90,6 +93,7 @@ class KeytabCache:
         
         return keytab_data
     
+
     def _get_from_memory(self, realm_id: int) -> Optional[bytes]:
         """Get keytab from memory cache."""
         if realm_id not in self.memory_cache:
@@ -106,6 +110,7 @@ class KeytabCache:
         
         return entry['keytab_data']
     
+
     def _get_from_redis(self, realm_id: int) -> Optional[bytes]:
         """Get keytab from Redis cache."""
         if not self.redis_client:
@@ -126,6 +131,7 @@ class KeytabCache:
             print(f"Error retrieving from Redis cache: {e}")
             return None
     
+
     def _store_in_memory(self, realm_id: int, keytab_data: bytes):
         """Store keytab in memory cache."""
         # Evict old entries if cache is full
@@ -139,6 +145,7 @@ class KeytabCache:
             'access_count': 1
         }
     
+
     def _store_in_redis(self, realm_id: int, keytab_data: bytes):
         """Store keytab in Redis cache."""
         if not self.redis_client:
@@ -158,10 +165,12 @@ class KeytabCache:
         except Exception as e:
             print(f"Error storing in Redis cache: {e}")
     
+
     def _decrypt_from_database(self, encrypted_data: bytes, iv: bytes, salt: bytes) -> bytes:
         """Decrypt keytab data from database."""
         return self.crypto.decrypt_keytab(encrypted_data, iv, salt)
     
+
     def _encrypt_redis_cache(self, keytab_data: bytes) -> bytes:
         """Encrypt data for Redis cache storage."""
         # Use a different encryption approach for Redis cache
@@ -171,6 +180,7 @@ class KeytabCache:
         # Return a combined format: salt + iv + encrypted_data
         return result['salt'] + result['iv'] + result['encrypted_data']
     
+
     def _decrypt_redis_cache(self, cached_data: bytes) -> bytes:
         """Decrypt data from Redis cache."""
         try:
@@ -184,11 +194,13 @@ class KeytabCache:
             print(f"Error decrypting Redis cache data: {e}")
             return None
     
+
     def _is_memory_expired(self, entry: Dict[str, Any]) -> bool:
         """Check if memory cache entry is expired."""
         age_hours = (time.time() - entry['created_at']) / 3600
         return age_hours > self.memory_ttl_hours
     
+
     def _evict_oldest_memory(self):
         """Evict the oldest memory cache entry."""
         if not self.memory_cache:
@@ -202,6 +214,7 @@ class KeytabCache:
         
         del self.memory_cache[oldest_realm_id]
     
+
     def invalidate_realm(self, realm_id: int):
         """Invalidate cache entries for a specific realm."""
         # Remove from memory cache
@@ -216,6 +229,7 @@ class KeytabCache:
             except Exception as e:
                 print(f"Error invalidating Redis cache: {e}")
     
+
     def clear_all(self):
         """Clear all caches."""
         self.memory_cache.clear()
@@ -228,6 +242,7 @@ class KeytabCache:
                     self.redis_client.delete(*keys)
             except Exception as e:
                 print(f"Error clearing Redis cache: {e}")
+    
     
     def get_cache_stats(self) -> Dict[str, Any]:
         """Get cache statistics."""

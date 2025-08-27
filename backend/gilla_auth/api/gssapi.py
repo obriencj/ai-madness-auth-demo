@@ -49,11 +49,16 @@ def validate_gssapi_realm_config(realm_config):
             return False, "Failed to decrypt keytab data"
         
         # Create temporary keytab file for GSSAPI validation
-        with tempfile.NamedTemporaryFile(delete=False) as temp_keytab:
+        with tempfile.NamedTemporaryFile() as temp_keytab:
             temp_keytab.write(keytab_data)
             temp_keytab_path = temp_keytab.name
         
-        try:
+            # Try to create a GSSAPI name from the service principal
+            service_name = gssapi.Name(realm_config['service_principal'], name_type=gssapi.NameType.kerberos_principal)
+            
+            # Try to acquire credentials from the temporary keytab
+            creds = gssapi.Credentials(name=service_name, usage='accept', store={'keytab': temp_keytab_path})
+            
             # Try to create a GSSAPI name from the service principal
             service_name = gssapi.Name(realm_config['service_principal'], name_type=gssapi.NameType.kerberos_principal)
             
@@ -65,12 +70,6 @@ def validate_gssapi_realm_config(realm_config):
             
             return True, "Configuration validated successfully"
             
-        finally:
-            # Clean up temporary file
-            try:
-                os.unlink(temp_keytab_path)
-            except OSError:
-                pass  # File might already be deleted
                 
     except Exception as e:
         return False, f"GSSAPI configuration validation failed: {str(e)}"
