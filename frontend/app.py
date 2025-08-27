@@ -141,31 +141,27 @@ def login():
         except requests.RequestException:
             flash('Connection error', 'error')
     
-    # Get OAuth providers from backend
-    try:
-        response = requests.get(f'{BACKEND_URL}/api/v1/auth/oauth/providers')
-        if response.status_code == 200:
-            oauth_providers = response.json()['providers']
-            # Filter to only show active providers (backend should already do this, but double-check)
-            oauth_providers = [p for p in oauth_providers if p.get('name')]
-            print(f"Login: Loaded {len(oauth_providers)} active OAuth providers: {[p['name'] for p in oauth_providers]}")
-        else:
-            oauth_providers = []
-            print(f"Login: Failed to load OAuth providers, status: {response.status_code}")
-    except requests.RequestException as e:
-        oauth_providers = []
-        print(f"Login: Connection error loading OAuth providers: {e}")
-    
-    # Get configuration to check if registration is allowed
+    # Get configuration to check if registration is allowed and get OAuth providers
     config = {}
     try:
         config_response = requests.get(f'{BACKEND_URL}/api/v1/auth/config')
         if config_response.status_code == 200:
             config = config_response.json().get('config', {})
-    except requests.RequestException:
+            print(f"Login: Loaded configuration with OAuth enabled: {config.get('auth', {}).get('oauth_enabled', True)}")
+            print(f"Login: Loaded configuration with GSSAPI enabled: {config.get('auth', {}).get('gssapi_enabled', True)}")
+            if config.get('auth', {}).get('oauth_enabled', True) and config.get('oauth_providers'):
+                print(f"Login: Found {len(config['oauth_providers'])} OAuth providers in config")
+            if config.get('auth', {}).get('gssapi_enabled', True) and config.get('gssapi_realms'):
+                print(f"Login: Found {len(config['gssapi_realms'])} GSSAPI realms in config")
+            else:
+                print(f"Login: GSSAPI realms in config: {config.get('gssapi_realms', [])}")
+        else:
+            print(f"Login: Failed to load configuration, status: {config_response.status_code}")
+    except requests.RequestException as e:
+        print(f"Login: Connection error loading configuration: {e}")
         pass  # Use default values if config service is unavailable
     
-    return render_template('login.html', oauth_providers=oauth_providers, config=config)
+    return render_template('login.html', config=config)
 
 @app.route('/api/validate-session')
 def validate_session():
@@ -529,21 +525,232 @@ def expire_all_sessions():
         return jsonify({'error': 'Connection error'}), 500
 
 
+# GSSAPI Routes
+@app.route('/gssapi/login')
+def gssapi_login():
+    """ GSSAPI login page """
+    # Check if GSSAPI is enabled in configuration
+    try:
+        config_response = requests.get(f'{BACKEND_URL}/api/v1/auth/config')
+        if config_response.status_code == 200:
+            config = config_response.json().get('config', {})
+            if not config.get('auth', {}).get('gssapi_enabled', True):
+                flash('GSSAPI authentication is currently disabled', 'error')
+                return redirect(url_for('login'))
+        else:
+            flash('Failed to load configuration', 'error')
+            return redirect(url_for('login'))
+    except requests.RequestException:
+        flash('Connection error', 'error')
+        return redirect(url_for('login'))
+    
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Negotiate '):
+        return jsonify({'error': 'GSSAPI authentication token required'}), 401, {'WWW-Authenticate': 'Negotiate'}
+        
+    # Extract the GSSAPI token from the Authorization header
+    gssapi_token = auth_header[10:]  # Remove 'Negotiate ' prefix
+        
+            # Make request to backend GSSAPI authenticate endpoint
+    auth_data = {
+        'gssapi_token': gssapi_token
+    }
+        
+    print(f"GSSAPI Auth: Sending to backend: {auth_data}")
+        
+    response = requests.post(
+        f'{BACKEND_URL}/api/v1/auth/gssapi/authenticate',
+        json=auth_data
+    )
+        
+    print(f"GSSAPI Auth: Backend response status: {response.status_code}")
+    print(f"GSSAPI Auth: Backend response: {response.text}")
+        
+    if response.status_code == 200:
+        data = response.json()
+            
+        # Set session cookies for the authenticated user
+        session['access_token'] = data['access_token']
+        session['user'] = data['user']
+        session['is_admin'] = data['user']['is_admin']
+            
+        print(f"GSSAPI Auth: Session set - access_token: {bool(session.get('access_token'))}, user: {bool(session.get('user'))}, is_admin: {session.get('is_admin')}")
+            
+        # Redirect to dashboard on successful authentication
+        flash('GSSAPI authentication successful!', 'success')
+        return redirect(url_for('dashboard'))
+    else:
+        error_data = response.json()
+        print(f"GSSAPI Auth: Backend error: {error_data}")
+        flash(error_data.get('error', 'GSSAPI authentication failed'), 'error')
+        return redirect(url_for('login'))
+    
+# GSSAPI Admin Routes
+@app.route('/admin/gssapi-realms')
+@admin_required
+def gssapi_realms():
+    """GSSAPI realm management page"""
+    try:
+        headers = {'Authorization': f'Bearer {session["access_token"]}'}
+        response = requests.get(
+            f'{BACKEND_URL}/api/v1/auth/gssapi/realms',
+            headers=headers
+        )
+        
+        if response.status_code == 200:
+            realms_data = response.json()
+            return render_template('gssapi_realms.html', realms=realms_data['realms'])
+        else:
+            flash('Failed to load GSSAPI realms', 'error')
+            return redirect(url_for('admin'))
+    except requests.RequestException:
+        flash('Connection error', 'error')
+        return redirect(url_for('admin'))
+
+
+@app.route('/admin/gssapi-realms/create', methods=['POST'])
+@admin_required
+def create_gssapi_realm():
+    """Create new GSSAPI realm"""
+    # Handle file upload for keytab
+    keytab_file = request.files.get('keytab_file')
+    keytab_data = None
+    
+    if keytab_file and keytab_file.filename:
+        try:
+            # Read file content and encode as base64
+            import base64
+            keytab_content = keytab_file.read()
+            keytab_data = base64.b64encode(keytab_content).decode('utf-8')
+        except Exception as e:
+            flash(f'Error processing keytab file: {str(e)}', 'error')
+            return redirect(url_for('gssapi_realms'))
+    
+    data = {
+        'name': request.form.get('name'),
+        'realm': request.form.get('realm'),
+        'kdc_hosts': request.form.get('kdc_hosts').split(',') if request.form.get('kdc_hosts') else [],
+        'admin_server': request.form.get('admin_server') or None,
+        'service_principal': request.form.get('service_principal'),
+        'default_realm': request.form.get('default_realm') == 'on',
+        'is_active': request.form.get('is_active') == 'on'
+    }
+    
+    # Only include keytab_data if file was uploaded
+    if keytab_data:
+        data['keytab_data'] = keytab_data
+    
+    try:
+        headers = {'Authorization': f'Bearer {session["access_token"]}'}
+        response = requests.post(
+            f'{BACKEND_URL}/api/v1/auth/gssapi/realms',
+            json=data, headers=headers
+        )
+        
+        if response.status_code == 201:
+            flash('GSSAPI realm created successfully', 'success')
+        else:
+            error_data = response.json()
+            flash(f'Error: {error_data.get("error", "Unknown error")}', 'error')
+    except requests.RequestException:
+        flash('Connection error', 'error')
+    
+    return redirect(url_for('gssapi_realms'))
+
+
+@app.route('/admin/gssapi-realms/<int:realm_id>/update', methods=['POST'])
+@admin_required
+def update_gssapi_realm(realm_id):
+    """Update GSSAPI realm"""
+    # Handle file upload for keytab
+    keytab_file = request.files.get('keytab_file')
+    keytab_data = None
+    
+    if keytab_file and keytab_file.filename:
+        try:
+            # Read file content and encode as base64
+            import base64
+            keytab_content = keytab_file.read()
+            keytab_data = base64.b64encode(keytab_content).decode('utf-8')
+        except Exception as e:
+            flash(f'Error processing keytab file: {str(e)}', 'error')
+            return redirect(url_for('gssapi_realms'))
+    
+    data = {
+        'name': request.form.get('name'),
+        'realm': request.form.get('realm'),
+        'kdc_hosts': request.form.get('kdc_hosts').split(',') if request.form.get('kdc_hosts') else [],
+        'admin_server': request.form.get('admin_server') or None,
+        'service_principal': request.form.get('service_principal'),
+        'default_realm': request.form.get('default_realm') == 'on',
+        'is_active': request.form.get('is_active') == 'on'
+    }
+    
+    # Only include keytab_data if new file was uploaded
+    if keytab_data:
+        data['keytab_data'] = keytab_data
+    
+    try:
+        headers = {'Authorization': f'Bearer {session["access_token"]}'}
+        response = requests.put(
+            f'{BACKEND_URL}/api/v1/auth/gssapi/realms/{realm_id}',
+            json=data, headers=headers
+        )
+        
+        if response.status_code == 200:
+            flash('GSSAPI realm updated successfully', 'success')
+        else:
+            error_data = response.json()
+            flash(f'Error: {error_data.get("error", "Unknown error")}', 'error')
+    except requests.RequestException:
+        flash('Connection error', 'error')
+    
+    return redirect(url_for('gssapi_realms'))
+
+
+@app.route('/admin/gssapi-realms/<int:realm_id>/delete', methods=['POST'])
+@admin_required
+def delete_gssapi_realm(realm_id):
+    """Delete GSSAPI realm"""
+    try:
+        headers = {'Authorization': f'Bearer {session["access_token"]}'}
+        response = requests.delete(
+            f'{BACKEND_URL}/api/v1/auth/gssapi/realms/{realm_id}',
+            headers=headers
+        )
+        
+        if response.status_code == 200:
+            flash('GSSAPI realm deleted successfully', 'success')
+        else:
+            error_data = response.json()
+            flash(f'Error: {error_data.get("error", "Unknown error")}', 'error')
+    except requests.RequestException:
+        flash('Connection error', 'error')
+    
+    return redirect(url_for('gssapi_realms'))
+
+
 # OAuth Routes
 @app.route('/oauth/<provider>/login')
 def oauth_login(provider):
     """Initiate OAuth login flow"""
-    # Check if provider exists and is active
+    # Check if OAuth is enabled in configuration
     try:
-        response = requests.get(f'{BACKEND_URL}/api/v1/auth/oauth/providers')
-        if response.status_code == 200:
-            providers = response.json()['providers']
-            provider_names = [p['name'] for p in providers]
+        config_response = requests.get(f'{BACKEND_URL}/api/v1/auth/config')
+        if config_response.status_code == 200:
+            config = config_response.json().get('config', {})
+            if not config.get('auth', {}).get('oauth_enabled', True):
+                flash('OAuth authentication is currently disabled', 'error')
+                return redirect(url_for('login'))
+            
+            # Check if provider exists in configuration
+            oauth_providers = config.get('oauth_providers', [])
+            provider_names = [p['name'] for p in oauth_providers]
             if provider not in provider_names:
                 flash('Unsupported OAuth provider', 'error')
                 return redirect(url_for('login'))
         else:
-            flash('Failed to load OAuth providers', 'error')
+            flash('Failed to load configuration', 'error')
             return redirect(url_for('login'))
     except requests.RequestException:
         flash('Connection error', 'error')
@@ -572,17 +779,23 @@ def oauth_login(provider):
 @app.route('/oauth/<provider>/callback')
 def oauth_callback(provider):
     """Handle OAuth callback"""
-    # Check if provider exists and is active
+    # Check if OAuth is enabled in configuration
     try:
-        response = requests.get(f'{BACKEND_URL}/api/v1/auth/oauth/providers')
-        if response.status_code == 200:
-            providers = response.json()['providers']
-            provider_names = [p['name'] for p in providers]
+        config_response = requests.get(f'{BACKEND_URL}/api/v1/auth/config')
+        if config_response.status_code == 200:
+            config = config_response.json().get('config', {})
+            if not config.get('auth', {}).get('oauth_enabled', True):
+                flash('OAuth authentication is currently disabled', 'error')
+                return redirect(url_for('login'))
+            
+            # Check if provider exists in configuration
+            oauth_providers = config.get('oauth_providers', [])
+            provider_names = [p['name'] for p in oauth_providers]
             if provider not in provider_names:
                 flash('Unsupported OAuth provider', 'error')
                 return redirect(url_for('login'))
         else:
-            flash('Failed to load OAuth providers', 'error')
+            flash('Failed to load configuration', 'error')
             return redirect(url_for('login'))
     except requests.RequestException:
         flash('Connection error', 'error')
@@ -664,31 +877,27 @@ def register():
         except requests.RequestException:
             flash('Connection error', 'error')
     
-    # Get OAuth providers from backend
-    try:
-        response = requests.get(f'{BACKEND_URL}/api/v1/auth/oauth/providers')
-        if response.status_code == 200:
-            oauth_providers = response.json()['providers']
-            # Filter to only show active providers (backend should already do this, but double-check)
-            oauth_providers = [p for p in oauth_providers if p.get('name')]
-            print(f"Register: Loaded {len(oauth_providers)} active OAuth providers: {[p['name'] for p in oauth_providers]}")
-        else:
-            oauth_providers = []
-            print(f"Register: Failed to load OAuth providers, status: {response.status_code}")
-    except requests.RequestException as e:
-        oauth_providers = []
-        print(f"Register: Connection error loading OAuth providers: {e}")
-    
-    # Get configuration to check if registration is allowed
+    # Get configuration to check if registration is allowed and get OAuth providers
     config = {}
     try:
         config_response = requests.get(f'{BACKEND_URL}/api/v1/auth/config')
         if config_response.status_code == 200:
             config = config_response.json().get('config', {})
-    except requests.RequestException:
+            print(f"Register: Loaded configuration with OAuth enabled: {config.get('auth', {}).get('oauth_enabled', True)}")
+            print(f"Register: Loaded configuration with GSSAPI enabled: {config.get('auth', {}).get('gssapi_enabled', True)}")
+            if config.get('auth', {}).get('oauth_enabled', True) and config.get('oauth_providers'):
+                print(f"Register: Found {len(config['oauth_providers'])} OAuth providers in config")
+            if config.get('auth', {}).get('gssapi_enabled', True) and config.get('gssapi_realms'):
+                print(f"Register: Found {len(config['gssapi_realms'])} GSSAPI realms in config")
+            else:
+                print(f"Register: GSSAPI realms in config: {config.get('gssapi_realms', [])}")
+        else:
+            print(f"Register: Failed to load configuration, status: {config_response.status_code}")
+    except requests.RequestException as e:
+        print(f"Register: Connection error loading configuration: {e}")
         pass  # Use default values if config service is unavailable
     
-    return render_template('register.html', oauth_providers=oauth_providers, config=config)
+    return render_template('register.html', config=config)
 
 
 @app.route('/account')
@@ -707,15 +916,23 @@ def account():
         if response.status_code == 200:
             account_data = response.json()
             
-            # Get available OAuth providers for linking
-            oauth_response = requests.get(f'{BACKEND_URL}/api/v1/auth/oauth/providers')
-            if oauth_response.status_code == 200:
-                available_providers = oauth_response.json()['providers']
-                # Filter out providers that are already connected
-                connected_providers = {acc['provider'] for acc in account_data['user']['oauth_accounts']}
-                available_providers = [p for p in available_providers if p['name'] not in connected_providers]
-            else:
-                available_providers = []
+            # Get available OAuth providers for linking from public config
+            available_providers = []
+            try:
+                config_response = requests.get(f'{BACKEND_URL}/api/v1/auth/config')
+                if config_response.status_code == 200:
+                    config = config_response.json().get('config', {})
+                    if config.get('auth', {}).get('oauth_enabled', True):
+                        oauth_providers = config.get('oauth_providers', [])
+                        # Filter out providers that are already connected
+                        connected_providers = {acc['provider'] for acc in account_data['user']['oauth_accounts']}
+                        available_providers = [p for p in oauth_providers if p['name'] not in connected_providers]
+                        print(f"Account: Found {len(available_providers)} available OAuth providers for linking")
+                else:
+                    print(f"Account: Failed to load configuration, status: {config_response.status_code}")
+            except requests.RequestException as e:
+                print(f"Account: Connection error loading configuration: {e}")
+                # Fallback to empty list if config service is unavailable
             
             return render_template('account.html', 
                                 account=account_data['user'],
@@ -787,16 +1004,22 @@ def remove_oauth_account(oauth_account_id):
 def link_oauth_account(provider):
     """Initiate OAuth account linking for logged-in user"""
     try:
-        # Check if provider exists and is active
-        oauth_response = requests.get(f'{BACKEND_URL}/api/v1/auth/oauth/providers')
-        if oauth_response.status_code == 200:
-            providers = oauth_response.json()['providers']
-            provider_names = [p['name'] for p in providers]
+        # Check if OAuth is enabled and provider exists using public config
+        config_response = requests.get(f'{BACKEND_URL}/api/v1/auth/config')
+        if config_response.status_code == 200:
+            config = config_response.json().get('config', {})
+            if not config.get('auth', {}).get('oauth_enabled', True):
+                flash('OAuth authentication is currently disabled', 'error')
+                return redirect(url_for('account'))
+            
+            # Check if provider exists in configuration
+            oauth_providers = config.get('oauth_providers', [])
+            provider_names = [p['name'] for p in oauth_providers]
             if provider not in provider_names:
                 flash('OAuth provider not available', 'error')
                 return redirect(url_for('account'))
         else:
-            flash('Failed to load OAuth providers', 'error')
+            flash('Failed to load configuration', 'error')
             return redirect(url_for('account'))
         
         # Check if user already has this provider connected

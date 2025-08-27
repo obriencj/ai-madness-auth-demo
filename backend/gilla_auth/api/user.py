@@ -164,13 +164,25 @@ def get_user_account():
             'created_at': oauth_account.created_at.isoformat()
         })
 
+    # Get GSSAPI accounts
+    gssapi_accounts = []
+    for gssapi_account in user.gssapi_accounts:
+        gssapi_accounts.append({
+            'id': gssapi_account.id,
+            'realm': gssapi_account.realm.name,
+            'realm_display_name': gssapi_account.realm.name,  # You might want to add display_name to GSSAPIRealm
+            'principal_name': gssapi_account.principal_name,
+            'created_at': gssapi_account.created_at.isoformat()
+        })
+
     return jsonify({
         'user': {
             'id': user.id,
             'username': user.username,
             'email': user.email,
             'is_admin': user.is_admin,
-            'oauth_accounts': oauth_accounts
+            'oauth_accounts': oauth_accounts,
+            'gssapi_accounts': gssapi_accounts
         }
     }), 200
 

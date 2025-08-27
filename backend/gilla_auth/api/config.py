@@ -18,6 +18,7 @@ from datetime import datetime, timedelta
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from .model import db, AppConfigVersion, User
+from .utils import get_provider_color
 
 # Create blueprints
 config_bp = Blueprint('config', __name__, url_prefix='/api/v1/admin')
@@ -118,10 +119,68 @@ class ConfigService:
         else:
             config_data = ConfigService.get_default_config()
         
+        # Dynamically populate GSSAPI realms and OAuth providers
+        config_data = ConfigService._populate_dynamic_config(config_data)
+        
         # Cache the result
         ConfigService._set_cache(config_data)
         
         return config_data
+    
+    @staticmethod
+    def _populate_dynamic_config(config_data):
+        """Populate dynamic configuration data from database."""
+        try:
+            # Import models here to avoid circular imports
+            from .model import GSSAPIRealm, OAuthProvider
+            
+            # Populate GSSAPI realms if enabled
+            if config_data.get("auth", {}).get("gssapi_enabled", True):
+                gssapi_realms = []
+                realms = GSSAPIRealm.query.filter_by(is_active=True).all()
+                print(f"Config: Found {len(realms)} active GSSAPI realms in database")
+                for realm in realms:
+                    gssapi_realms.append({
+                        "id": realm.id,
+                        "name": realm.name,
+                        "realm": realm.realm,
+                        "display_name": realm.name.replace("_", " ").title(),
+                        "default_realm": realm.default_realm
+                    })
+                config_data["gssapi_realms"] = gssapi_realms
+                print(f"Config: Populated {len(gssapi_realms)} GSSAPI realms in config")
+            else:
+                print(f"Config: GSSAPI is disabled, not populating realms")
+                config_data["gssapi_realms"] = []
+            
+            # Populate OAuth providers if enabled
+            if config_data.get("auth", {}).get("oauth_enabled", True):
+                oauth_providers = []
+                providers = OAuthProvider.query.filter_by(is_active=True).all()
+                print(f"Config: Found {len(providers)} active OAuth providers in database")
+                for provider in providers:
+                    oauth_providers.append({
+                        "id": provider.id,
+                        "name": provider.name,
+                        "display_name": provider.name.title(),
+                        "icon": f"fab fa-{provider.name}",
+                        "color": get_provider_color(provider.name)
+                    })
+                config_data["oauth_providers"] = oauth_providers
+                print(f"Config: Populated {len(oauth_providers)} OAuth providers in config")
+            else:
+                print(f"Config: OAuth is disabled, not populating providers")
+                config_data["oauth_providers"] = []
+                
+        except Exception as e:
+            print(f"Error populating dynamic config: {e}")
+            # Fallback to empty lists if there's an error
+            config_data["gssapi_realms"] = []
+            config_data["oauth_providers"] = []
+        
+        return config_data
+    
+
     
     @staticmethod
     def get_default_config():
@@ -131,13 +190,17 @@ class ConfigService:
                 "allow_registration": True,
                 "allow_user_login": True,
                 "jwt_lifetime_hours": 1,
-                "max_login_attempts": 5
+                "max_login_attempts": 5,
+                "gssapi_enabled": True,
+                "oauth_enabled": True
             },
             "app": {
                 "maintenance_mode": False,
                 "site_name": "Auth Demo",
                 "contact_email": "admin@example.com"
-            }
+            },
+            "gssapi_realms": [],
+            "oauth_providers": []
         }
     
     @staticmethod
@@ -154,6 +217,11 @@ class ConfigService:
                 return default
         
         return current
+    
+    @staticmethod
+    def get_jwt_lifetime_hours():
+        """Get JWT lifetime in hours from configuration."""
+        return ConfigService.get_config_value('auth.jwt_lifetime_hours', 1)
     
     @staticmethod
     def create_new_version(config_data, description, user_id):
@@ -240,49 +308,43 @@ def get_config():
     return ConfigService.get_active_config()
 
 
-def get_config_value(key_path, default=None):
-    """Get a specific configuration value."""
-    return ConfigService.get_config_value(key_path, default)
+
 
 
 def is_registration_allowed():
     """Check if user registration is allowed."""
-    return get_config_value('auth.allow_registration', True)
+    return ConfigService.get_config_value('auth.allow_registration', True)
 
 
 def is_user_login_allowed():
     """Check if non-admin user login is allowed."""
-    return get_config_value('auth.allow_user_login', True)
+    return ConfigService.get_config_value('auth.allow_user_login', True)
 
 
-def get_jwt_lifetime_hours():
-    """Get JWT token lifetime in hours."""
-    return get_config_value('auth.jwt_lifetime_hours', 1)
+
 
 
 def get_max_login_attempts():
     """Get maximum login attempts allowed."""
-    return get_config_value('auth.max_login_attempts', 5)
+    return ConfigService.get_config_value('auth.max_login_attempts', 5)
 
 
 def is_maintenance_mode():
     """Check if the application is in maintenance mode."""
-    return get_config_value('app.maintenance_mode', False)
+    return ConfigService.get_config_value('app.maintenance_mode', False)
 
 
 def get_site_name():
     """Get the site name."""
-    return get_config_value('app.site_name', 'Auth Demo')
+    return ConfigService.get_config_value('app.site_name', 'Auth Demo')
 
 
 def get_contact_email():
     """Get the contact email."""
-    return get_config_value('app.contact_email', 'admin@example.com')
+    return ConfigService.get_config_value('app.contact_email', 'admin@example.com')
 
 
-def refresh_config_cache():
-    """Manually refresh the configuration cache."""
-    return ConfigService.refresh_cache()
+
 
 
 # ============================================================================
@@ -566,9 +628,17 @@ def get_auth_config():
         public_config = {
             'auth': {
                 'allow_registration': config.get('auth', {}).get('allow_registration', True),
-                'allow_user_login': config.get('auth', {}).get('allow_user_login', True)
-            }
+                'allow_user_login': config.get('auth', {}).get('allow_user_login', True),
+                'gssapi_enabled': config.get('auth', {}).get('gssapi_enabled', True),
+                'oauth_enabled': config.get('auth', {}).get('oauth_enabled', True)
+            },
+            'gssapi_realms': config.get('gssapi_realms', []),
+            'oauth_providers': config.get('oauth_providers', [])
         }
+        
+        print(f"Public Config: Returning config with {len(public_config.get('gssapi_realms', []))} GSSAPI realms and {len(public_config.get('oauth_providers', []))} OAuth providers")
+        print(f"Public Config: GSSAPI enabled: {public_config['auth'].get('gssapi_enabled')}")
+        print(f"Public Config: OAuth enabled: {public_config['auth'].get('oauth_enabled')}")
         
         return jsonify({
             'config': public_config,

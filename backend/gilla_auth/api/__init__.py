@@ -14,7 +14,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 
 # Import models and database instances
-from .model import db, User, OAuthProvider, OAuthAccount, JWTSession
+from .model import db, User, OAuthProvider, OAuthAccount, GSSAPIRealm, GSSAPIAccount, JWTSession
 
 # Import JWT functionality
 from .jwt import (
@@ -25,6 +25,7 @@ from .jwt import (
 
 # Import blueprints
 from .oauth import oauth_bp
+from .gssapi import gssapi_bp
 from .config import config_bp, public_config_bp
 from .user import user_bp
 
@@ -46,6 +47,7 @@ def create_app():
 
     # Register blueprints
     app.register_blueprint(oauth_bp)
+    app.register_blueprint(gssapi_bp)
     app.register_blueprint(jwt_bp)
     app.register_blueprint(config_bp)
     app.register_blueprint(public_config_bp)

@@ -41,6 +41,11 @@ class User(db.Model):
             password.encode('utf-8'), self.password_hash.encode('utf-8')
         )
 
+    @property
+    def has_password(self):
+        """Check if user has a password set."""
+        return self.password_hash is not None
+
     def __repr__(self):
         return f'<User {self.username}>'
 
@@ -128,6 +133,53 @@ class JWTSession(db.Model):
             return f'OAuth ({provider})'
         else:
             return self.auth_method.title()
+
+
+class GSSAPIRealm(db.Model):
+    """GSSAPI/Kerberos realm configuration model."""
+    __tablename__ = 'gssapi_realm'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), unique=True, nullable=False)
+    realm = db.Column(db.String(255), nullable=False)
+    kdc_hosts = db.Column(db.ARRAY(db.String), nullable=False)  # Array of KDC hostnames
+    admin_server = db.Column(db.String(255), nullable=True)  # Admin server hostname
+    service_principal = db.Column(db.String(255), nullable=False)  # Service principal (e.g., HTTP/hostname@REALM.COM)
+    encrypted_keytab = db.Column(db.LargeBinary, nullable=False)  # Encrypted keytab data
+    keytab_encryption_iv = db.Column(db.LargeBinary, nullable=False)  # Initialization vector for AES encryption
+    keytab_encryption_salt = db.Column(db.LargeBinary, nullable=False)  # Salt for key derivation
+    default_realm = db.Column(db.Boolean, default=False)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+    updated_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+
+    def __repr__(self):
+        return f'<GSSAPIRealm {self.name}:{self.realm}>'
+
+
+class GSSAPIAccount(db.Model):
+    """GSSAPI account linking model."""
+    __tablename__ = 'gssapi_account'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    realm_id = db.Column(db.Integer, db.ForeignKey('gssapi_realm.id'), nullable=False)
+    principal_name = db.Column(db.String(255), nullable=False)  # Full Kerberos principal
+    service_principal = db.Column(db.String(255), nullable=True)  # Service principal if applicable
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+    updated_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+
+    # Relationships
+    user = db.relationship('User', backref='gssapi_accounts')
+    realm = db.relationship('GSSAPIRealm')
+
+    # Constraints
+    __table_args__ = (
+        db.UniqueConstraint('realm_id', 'principal_name'),
+    )
+
+    def __repr__(self):
+        return f'<GSSAPIAccount {self.principal_name}@{self.realm.realm}>'
 
 
 class AppConfigVersion(db.Model):

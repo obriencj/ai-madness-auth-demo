@@ -1,0 +1,47 @@
+# Project Rules for AI-Madness Auth Demo
+
+## General Behavior
+- When making changes across multiple files, provide a summary of all changes and raise concerns or questions before taking action
+- After completing all approved changes, commit them to git
+
+## Git Operations
+- Always use `git mv` when moving files to preserve history
+- When invoking git commands, always specify the `--no-pager` option
+- Use descriptive commit messages that explain the purpose of changes
+
+## Project Structure
+- This is a full-stack authentication demo with backend (Python/FastAPI), frontend, and nginx
+- Use the Makefile for container operations: `make build`, `make up`, `make down`
+- Backend code is in `backend/gilla_auth/`
+- Frontend code is in `frontend/`
+- Docker Compose configuration is in `docker-compose.yml`
+
+## Quirks
+- I prefer to have a comment at the end of source code files with the text "The end."
+- I prefer to limit the use of javascript
+
+## Code Style & Standards
+- Follow PEP 8 for Python code
+- Use type hints in Python code
+- Maintain consistent indentation and formatting
+- Add docstrings to functions and classes
+- Use meaningful variable and function names
+- Source files should have a docstring at the top of the file which includes Author, Assisted-By, and License attributions at the end of the docstring
+
+## Security Best Practices
+- Never hardcode API keys or sensitive credentials
+- Use environment variables for configuration
+- Validate all user inputs
+- Implement proper authentication and authorization
+
+## Testing & Quality
+- Write tests for new functionality
+- Ensure code passes linting checks
+- Test both backend and frontend components
+- Verify Docker containers build and run correctly
+
+## Documentation
+- Update README.md when adding new features
+- Document API endpoints and their usage
+- Include setup and deployment instructions
+- Comment complex logic and business rules

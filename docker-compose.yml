@@ -35,6 +35,7 @@ services:
       - DATABASE_URL=postgresql://auth_user:auth_password@postgres:5432/auth_demo
       - REDIS_URL=redis://redis:6379
       - JWT_SECRET_KEY=your-super-secret-jwt-key-change-in-production
+      - GSSAPI_MASTER_KEY=your-super-secret-gssapi-master-key-change-in-production
     depends_on:
       postgres:
         condition: service_healthy
