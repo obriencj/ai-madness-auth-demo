@@ -1,4 +1,4 @@
-# Multi-stage container image to build gilla-auth-api and get it
+# Multi-stage container image to build daft-gila.api and get it
 # installed and running under gunicorn on alpine.
 
 
@@ -19,7 +19,7 @@ RUN \
 RUN pip3 install build pip-tools gssapi
 
 COPY setup.cfg setup.py README.md LICENSE ./
-COPY gilla_auth/ ./gilla_auth/
+COPY daftgila/ ./daftgila/
 
 RUN pip-compile --output-file requirements.txt setup.cfg
 RUN python3 -m build .
@@ -45,18 +45,25 @@ RUN pip3 install -r requirements.txt && \
     pip3 install gunicorn
 
 # Copy the built wheel from the build stage
-COPY --from=build /build/dist/gilla*.whl .
+COPY --from=build /build/dist/daftgila_api-*.whl .
 
 # Install the wheel
-RUN pip3 install gilla*.whl && \
-    rm gilla*.whl && \
+RUN pip3 install daftgila_api-*.whl && \
+    rm *.whl && \
     apk del .build-deps krb5-dev
 
 # Create a non-root user
-RUN adduser -DS -s /sbin/nologin gilla gilla
+RUN adduser -DS -s /sbin/nologin daftgila daftgila
 
-USER gilla
+USER daftgila
 
 EXPOSE 5000
 
-ENTRYPOINT ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "--timeout", "120", "gilla_auth.api:app"]
+ENTRYPOINT [ "gunicorn", \
+    "--bind", "0.0.0.0:5000", \
+    "--workers", "4", \
+    "--timeout", "120", \
+    "daftgila.api:app" ]
+
+
+# The end.

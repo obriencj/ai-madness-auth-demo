@@ -1,25 +1,25 @@
-# Gilla Authentication API Backend
+# Daft Gila Authentication API Backend
 
-This is the backend service for the Gilla Authentication Demo, packaged as a Python wheel for deployment in containerized environments. The backend provides a comprehensive authentication system supporting JWT, OAuth, and GSSAPI/Kerberos authentication methods.
+This is the backend service for the Daft Gila Authentication Demo, packaged as a Python wheel for deployment in containerized environments. The backend provides a comprehensive authentication system supporting JWT, OAuth, and GSSAPI/Kerberos authentication methods.
 
 ## Package Structure
 
 The backend is organized as a namespace package with comprehensive authentication modules:
 
 ```
-gilla_auth/
-├── __init__.py          # Namespace package (empty)
-└── api/
-    ├── __init__.py      # Flask app factory and main routes
-    ├── config.py        # Configuration management and admin endpoints
-    ├── jwt.py          # JWT authentication utilities and session management
-    ├── model.py        # Database models and SQLAlchemy setup
-    ├── oauth.py        # OAuth provider integration and workflow
-    ├── gssapi.py       # GSSAPI/Kerberos authentication system
-    ├── user.py         # User management endpoints
-    ├── crypto.py       # Cryptographic utilities and keytab encryption
-    ├── keytab_cache.py # Keytab caching and management
-    └── utils.py        # Utility functions and helpers
+preoccupied/
+└── daftgila/
+    └── api/
+        ├── __init__.py     # Flask app factory and main routes
+        ├── config.py       # Configuration management and admin endpoints
+        ├── jwt.py          # JWT authentication utilities and session management
+        ├── model.py        # Database models and SQLAlchemy setup
+        ├── oauth.py        # OAuth provider integration and workflow
+        ├── gssapi.py       # GSSAPI/Kerberos authentication system
+        ├── user.py         # User management endpoints
+        ├── crypto.py       # Cryptographic utilities and keytab encryption
+        ├── keytab_cache.py # Keytab caching and management
+        └── utils.py        # Utility functions and helpers
 ```
 
 ## Authentication Features
@@ -197,7 +197,7 @@ The service is designed to run in containers with:
 Required environment variables:
 
 - `DATABASE_URL`: PostgreSQL connection string
-- `REDIS_URL`: Redis connection string  
+- `REDIS_URL`: Redis connection string
 - `JWT_SECRET_KEY`: Secret key for JWT signing
 - `GSSAPI_MASTER_KEY`: Master key for GSSAPI keytab encryption
 
@@ -263,5 +263,3 @@ python -m nose test_gssapi.py
 GNU General Public License v3 (GPLv3)
 
 <!-- The end. -->
-
-

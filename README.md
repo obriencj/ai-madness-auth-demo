@@ -1,6 +1,8 @@
-# Gilla Authentication Demo Application Stack
+# Daft Gila Authentication Demo Application Stack
 
 A comprehensive demonstration of enterprise-grade authentication systems featuring JWT authentication, OAuth integration, and GSSAPI/Kerberos authentication with Redis session management, PostgreSQL database, and a modern web interface.
+
+The Daft Gila name is meaningless. Coolname suggested "daft skink" but I was listening to "Gila Monster by King Gizard and the Lizard Wizard" at the time. Gila also means daft in Indonesian apparently. That's fate, surely.
 
 ## Architecture
 
