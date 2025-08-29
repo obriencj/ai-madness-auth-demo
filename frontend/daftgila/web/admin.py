@@ -182,7 +182,64 @@ def expire_all_sessions():
 @admin_required
 def config_management():
     """Configuration management page"""
-    return render_template('config.html')
+    try:
+        # Use injected client instead of direct requests
+        response = g.client.admin.get_config()
+        
+        if response.is_success:
+            config_data = response.data
+        else:
+            config_data = {}
+            flash(f'Error fetching configuration: {response.message}', 'error')
+            
+    except Exception as e:
+        config_data = {}
+        flash(f'Connection error: {str(e)}', 'error')
+    
+    # Get configuration versions
+    try:
+        versions_response = g.client.admin.get_config_versions()
+        
+        if versions_response.is_success:
+            versions = versions_response.data.get('config_versions', [])
+        else:
+            versions = []
+            flash(f'Error fetching configuration versions: {versions_response.message}', 'error')
+            
+    except Exception as e:
+        versions = []
+        flash(f'Connection error: {str(e)}', 'error')
+    
+    return render_template('config.html', config=config_data, versions=versions)
+
+
+@admin_bp.route('/api/config', methods=['POST'])
+@admin_required
+def update_config():
+    """Update system configuration"""
+    try:
+        data = request.get_json()
+        
+        if not data or 'config_data' not in data:
+            flash('Invalid configuration data', 'error')
+            return jsonify({'error': 'Invalid configuration data'}), 400
+        
+        # Use injected client instead of direct requests
+        response = g.client.admin.update_config(data['config_data'])
+        
+        if response.is_success:
+            # Create a new configuration version if description is provided
+            if data.get('description'):
+                # Note: This would require a separate endpoint for creating config versions
+                # For now, we'll just update the config
+                pass
+            
+            return jsonify({'message': 'Configuration updated successfully'}), 200
+        else:
+            return jsonify({'error': response.message or 'Failed to update configuration'}), 400
+            
+    except Exception as e:
+        return jsonify({'error': f'Connection error: {str(e)}'}), 500
 
 
 @admin_bp.route('/oauth-providers')
