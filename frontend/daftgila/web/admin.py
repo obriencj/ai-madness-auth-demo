@@ -139,15 +139,15 @@ def jwt_sessions():
     """JWT sessions management page"""
     try:
         response = g.client.admin.get_jwt_sessions()        
-        if response.status_code == 200:
-            sessions_data = response.json()
+        if response.is_success:
+            sessions_data = response.data
             return render_template('jwt_sessions.html', sessions=sessions_data['sessions'])
         else:
             flash('Failed to load JWT sessions', 'error')
-            return redirect(url_for('admin'))
-    except requests.RequestException:
+            return redirect(url_for('admin.admin_dashboard'))
+    except Exception as e:
         flash('Connection error', 'error')
-        return redirect(url_for('admin'))
+        return redirect(url_for('admin.admin_dashboard'))
 
 
 @admin_bp.route('/sessions/<int:session_id>/expire', methods=['POST'])
@@ -156,12 +156,11 @@ def expire_session(session_id):
     """Expire a specific JWT session"""
     try:
         response = g.client.admin.expire_jwt_session(session_id)
-        if response.status_code == 200:
+        if response.is_success:
             return jsonify({'message': 'Session expired successfully'}), 200
         else:
-            error_data = response.json()
-            return jsonify({'error': error_data.get("error", "Unknown error")}), 400
-    except requests.RequestException:
+            return jsonify({'error': response.message or 'Unknown error'}), 400
+    except Exception as e:
         return jsonify({'error': 'Connection error'}), 500
 
 
@@ -171,12 +170,11 @@ def expire_all_sessions():
     """Expire all active JWT sessions"""
     try:
         response = g.client.admin.expire_all_jwt_sessions()        
-        if response.status_code == 200:
+        if response.is_success:
             return jsonify({'message': 'All sessions expired successfully'}), 200
         else:
-            error_data = response.json()
-            return jsonify({'error': error_data.get("error", "Unknown error")}), 400
-    except requests.RequestException:
+            return jsonify({'error': response.message or 'Unknown error'}), 400
+    except Exception as e:
         return jsonify({'error': 'Connection error'}), 500
 
 
