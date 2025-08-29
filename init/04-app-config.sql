@@ -22,6 +22,10 @@ CREATE INDEX IF NOT EXISTS idx_app_config_created_at ON app_config_version(creat
 CREATE INDEX IF NOT EXISTS idx_app_config_created_by ON app_config_version(created_by);
 CREATE INDEX IF NOT EXISTS idx_app_config_version_created ON app_config_version(version, created_at);
 
+-- Create unique partial index for active configuration (PostgreSQL only)
+-- This ensures only one active configuration at a time
+CREATE UNIQUE INDEX IF NOT EXISTS idx_app_config_active_unique ON app_config_version(is_active) WHERE is_active = TRUE;
+
 -- Add database constraints for data validation
 ALTER TABLE app_config_version 
 ADD CONSTRAINT version_positive CHECK (version > 0);

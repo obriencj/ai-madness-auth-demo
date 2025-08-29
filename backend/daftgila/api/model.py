@@ -340,7 +340,6 @@ class AppConfigVersion(db.Model):
     # Database constraints
     __table_args__ = (
         CheckConstraint('version > 0', name='version_positive'),
-        Index('idx_app_config_active_unique', 'is_active') if db.dialect.name == 'postgresql' else None,
         Index('idx_app_config_version_created', 'version', 'created_at'),
     )
 
