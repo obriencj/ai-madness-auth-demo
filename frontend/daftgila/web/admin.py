@@ -184,7 +184,7 @@ def config_management():
     """Configuration management page"""
     try:
         # Use injected client instead of direct requests
-        response = g.client.admin.get_config()
+        response = g.client.config.get_active()
         
         if response.is_success:
             config_data = response.data
@@ -198,7 +198,7 @@ def config_management():
     
     # Get configuration versions
     try:
-        versions_response = g.client.admin.get_config_versions()
+        versions_response = g.client.config.get_versions()
         
         if versions_response.is_success:
             versions = versions_response.data.get('config_versions', [])
@@ -225,7 +225,7 @@ def update_config():
             return jsonify({'error': 'Invalid configuration data'}), 400
         
         # Use injected client instead of direct requests
-        response = g.client.admin.update_config(data['config_data'])
+        response = g.client.config.update(data['config_data'])
         
         if response.is_success:
             # Create a new configuration version if description is provided
