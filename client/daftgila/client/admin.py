@@ -433,7 +433,7 @@ class AdminClient:
         Returns:
             APIResponse with system configuration
         """
-        return self.http.get('/api/v1/admin/config')
+        return self.http.get('/api/v1/admin/config/active')
     
     def update_config(self, config_data: Dict[str, Any]) -> APIResponse:
         """
@@ -451,7 +451,7 @@ class AdminClient:
         if not config_data:
             raise ValidationError("Configuration data is required")
         
-        return self.http.post('/api/v1/admin/config', json_data=config_data)
+        return self.http.put('/api/v1/admin/config/update', json_data=config_data)
     
     def get_config_versions(self) -> APIResponse:
         """

@@ -22,7 +22,7 @@ from .utils import admin_required, get_current_user, success_response, error_res
 from .audit import log_config_action, AuditActions
 
 # Create configuration blueprints
-config_bp = Blueprint('config', __name__, url_prefix='/api/v1/config')
+config_bp = Blueprint('config', __name__, url_prefix='/api/v1/admin/config')
 public_config_bp = Blueprint('public_config', __name__, url_prefix='/api/v1/config')
 
 
@@ -100,8 +100,9 @@ def get_jwt_lifetime_hours():
 
 @config_bp.route('/active', methods=['GET'])
 @jwt_required()
+@admin_required
 def get_active_config_endpoint():
-    """Get the currently active configuration (authenticated users)."""
+    """Get the currently active configuration (admin only)."""
     try:
         active_config = AppConfigVersion.query.filter_by(is_active=True).first()
         if not active_config:

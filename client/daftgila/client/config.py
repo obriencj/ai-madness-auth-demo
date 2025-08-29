@@ -36,12 +36,12 @@ class ConfigClient:
     
     def get_active(self) -> APIResponse:
         """
-        Get the currently active configuration.
+        Get the currently active configuration (admin only).
         
         Returns:
             APIResponse with active configuration
         """
-        return self.http.get('/api/v1/config/active')
+        return self.http.get('/api/v1/admin/config/active')
     
     def update(self, config_data: Dict[str, Any]) -> APIResponse:
         """
@@ -59,7 +59,7 @@ class ConfigClient:
         if not config_data:
             raise ValidationError("Configuration data is required")
         
-        return self.http.put('/api/v1/config/update', json_data=config_data)
+        return self.http.put('/api/v1/admin/config/update', json_data=config_data)
     
     def get_versions(self) -> APIResponse:
         """
@@ -68,7 +68,7 @@ class ConfigClient:
         Returns:
             APIResponse with list of configuration versions
         """
-        return self.http.get('/api/v1/config/versions')
+        return self.http.get('/api/v1/admin/config/versions')
     
     def get_version(self, version_id: int) -> APIResponse:
         """
@@ -86,7 +86,7 @@ class ConfigClient:
         if not version_id or version_id <= 0:
             raise ValidationError("Valid version ID is required", "version_id", version_id)
         
-        return self.http.get(f'/api/v1/config/versions/{version_id}')
+        return self.http.get(f'/api/v1/admin/config/versions/{version_id}')
     
     def activate_version(self, version_id: int) -> APIResponse:
         """
@@ -104,7 +104,7 @@ class ConfigClient:
         if not version_id or version_id <= 0:
             raise ValidationError("Valid version ID is required", "version_id", version_id)
         
-        return self.http.post(f'/api/v1/config/versions/{version_id}/activate')
+        return self.http.post(f'/api/v1/admin/config/versions/{version_id}/activate')
     
     def delete_version(self, version_id: int) -> APIResponse:
         """
@@ -122,7 +122,7 @@ class ConfigClient:
         if not version_id or version_id <= 0:
             raise ValidationError("Valid version ID is required", "version_id", version_id)
         
-        return self.http.delete(f'/api/v1/config/versions/{version_id}')
+        return self.http.delete(f'/api/v1/admin/config/versions/{version_id}')
     
     def refresh_cache(self) -> APIResponse:
         """
@@ -131,7 +131,7 @@ class ConfigClient:
         Returns:
             APIResponse with cache refresh result
         """
-        return self.http.post('/api/v1/config/cache/refresh')
+        return self.http.post('/api/v1/admin/config/cache/refresh')
     
     def get_cache_status(self) -> APIResponse:
         """
@@ -140,7 +140,7 @@ class ConfigClient:
         Returns:
             APIResponse with cache status information
         """
-        return self.http.get('/api/v1/config/cache/status')
+        return self.http.get('/api/v1/admin/config/cache/status')
     
     def get_public(self) -> APIResponse:
         """
