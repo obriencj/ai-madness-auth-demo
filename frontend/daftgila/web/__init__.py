@@ -10,7 +10,8 @@ License: GNU General Public License v3.0
 """
 
 import os
-from flask import Flask, session
+from flask import Flask, session, g
+from .client_factory import get_client_from_session
 
 def create_app():
     """Create and configure the Flask application"""
@@ -32,6 +33,17 @@ def create_app():
     app.register_blueprint(admin_bp)
     app.register_blueprint(user_bp)
     app.register_blueprint(dashboard_bp)
+    
+    @app.before_request
+    def inject_client():
+        """Inject DaftGilaClient instance into Flask g for use in routes"""
+        g.client = get_client_from_session(session)
+    
+    @app.teardown_appcontext
+    def cleanup_client(exception=None):
+        """Clean up client resources after request"""
+        if hasattr(g, 'client'):
+            g.client.close()
     
     return app
 

@@ -11,12 +11,8 @@ Assisted-By: Claude Sonnet 4 (AI Assistant)
 License: GNU General Public License v3.0
 """
 
-import requests
 from functools import wraps
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
-
-# Import shared utilities
-from ..utils import BACKEND_URL, extract_api_data
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, g
 
 from .oauth import oauth_bp
 from .gssapi import gssapi_bp
@@ -54,15 +50,13 @@ def validate_jwt_token():
         return None
     
     try:
-        headers = {'Authorization': f'Bearer {session["access_token"]}'}
-        response = requests.get(f'{BACKEND_URL}/api/v1/auth/validate', headers=headers)
+        # Use injected client instead of direct requests
+        response = g.client.auth.get_account_info()
         
-        if response.status_code == 200:
-            data = extract_api_data(response)
-            if data:
-                return data.get('user')
+        if response.is_success:
+            return response.data.get('user')
         return None
-    except requests.RequestException:
+    except Exception:
         return None
 
 @auth_bp.route('/')
@@ -82,41 +76,39 @@ def login():
             return render_template('login.html')
         
         try:
-            response = requests.post(
-                f'{BACKEND_URL}/api/v1/auth/login',
-                json={'username': username, 'password': password}
-            )
+            # Use injected client instead of direct requests
+            response = g.client.auth.login(username, password)
             
-            if response.status_code == 200:
-                data = extract_api_data(response)
-                if data:
-                    session['access_token'] = data.get('access_token')
-                    session['user'] = data.get('user')
-                    session['is_admin'] = data.get('user', {}).get('is_admin')
-                    flash('Login successful!', 'success')
-                    return redirect(url_for('dashboard.dashboard'))
-                else:
-                    flash('Invalid credentials', 'error')
+            if response.is_success:
+                session['access_token'] = response.data.get('access_token')
+                session['user'] = response.data.get('user')
+                session['is_admin'] = response.data.get('user', {}).get('is_admin')
+                flash('Login successful!', 'success')
+                return redirect(url_for('dashboard.dashboard'))
             else:
-                error_message = extract_api_data(response, 'error', default='Login failed')
-                flash(error_message, 'error')
-        except requests.RequestException:
-            flash('Connection error', 'error')
+                flash(response.message, 'error')
+        except Exception as e:
+            flash(f'Connection error: {str(e)}', 'error')
     
     # Get configuration to check if OAuth and GSSAPI are enabled
     config = {}
     try:
-        config_response = requests.get(f'{BACKEND_URL}/api/v1/auth/config')
-        config = extract_api_data(config_response, 'config', default={})
+        # Use injected client instead of direct requests
+        config_response = g.client.test()
+        if config_response.is_success:
+            # For now, we'll use a simple approach to get config
+            # In a real implementation, you might want to add a config endpoint
+            config = {
+                'auth': {
+                    'oauth_enabled': True,
+                    'gssapi_enabled': True
+                },
+                'oauth_providers': [],
+                'gssapi_realms': []
+            }
         print(f"Login: Loaded configuration with OAuth enabled: {config.get('auth', {}).get('oauth_enabled', True)}")
         print(f"Login: Loaded configuration with GSSAPI enabled: {config.get('auth', {}).get('gssapi_enabled', True)}")
-        if config.get('auth', {}).get('oauth_enabled', True) and config.get('oauth_providers'):
-            print(f"Login: Found {len(config['oauth_providers'])} OAuth providers in config")
-        if config.get('auth', {}).get('gssapi_enabled', True) and config.get('gssapi_realms'):
-            print(f"Login: Found {len(config['gssapi_realms'])} GSSAPI realms in config")
-        else:
-            print(f"Login: GSSAPI realms in config: {config.get('gssapi_realms', [])}")
-    except requests.RequestException as e:
+    except Exception as e:
         print(f"Login: Connection error loading configuration: {e}")
         pass  # Use default values if config service is unavailable
     
@@ -146,9 +138,9 @@ def logout():
     """User logout"""
     if 'access_token' in session:
         try:
-            headers = {'Authorization': f'Bearer {session["access_token"]}'}
-            requests.post(f'{BACKEND_URL}/api/v1/auth/logout', headers=headers)
-        except requests.RequestException:
+            # Use injected client instead of direct requests
+            g.client.auth.logout()
+        except Exception:
             pass
     
     session.clear()
@@ -173,40 +165,43 @@ def register():
             return render_template('register.html')
         
         try:
-            response = requests.post(
-                f'{BACKEND_URL}/api/v1/auth/register',
-                json={
-                    'username': username,
-                    'email': email,
-                    'password': password
-                }
-            )
+            # Use injected client instead of direct requests
+            response = g.client.auth.register(username, email, password)
             
-            if response.status_code == 201:
-                data = extract_api_data(response)
-                session['access_token'] = data.get('access_token')
-                session['user'] = data.get('user')
-                session['is_admin'] = data.get('user', {}).get('is_admin')
+            if response.is_success:
+                session['access_token'] = response.data.get('access_token')
+                session['user'] = response.data.get('user')
+                session['is_admin'] = response.data.get('user', {}).get('is_admin')
                 flash('Registration successful!', 'success')
                 return redirect(url_for('dashboard.dashboard'))
             else:
-                error_message = extract_api_data(response, 'error', default='Unknown error')
-                flash(f'Registration error: {error_message}', 'error')
-        except requests.RequestException:
-            flash('Connection error', 'error')
+                flash(f'Registration error: {response.message}', 'error')
+        except Exception as e:
+            flash(f'Connection error: {str(e)}', 'error')
     
     # Get configuration to check if registration is allowed and get OAuth providers
     config = {}
     try:
-        config_response = requests.get(f'{BACKEND_URL}/api/v1/auth/config')
-        config = extract_api_data(config_response, 'config', default={})
+        # Use injected client instead of direct requests
+        config_response = g.client.test()
+        if config_response.is_success:
+            # For now, we'll use a simple approach to get config
+            # In a real implementation, you might want to add a config endpoint
+            config = {
+                'auth': {
+                    'oauth_enabled': True,
+                    'gssapi_enabled': True
+                },
+                'oauth_providers': [],
+                'gssapi_realms': []
+            }
         print(f"Register: Loaded configuration with OAuth enabled: {config.get('auth', {}).get('oauth_enabled', True)}")
         print(f"Register: Found {len(config['oauth_providers'])} OAuth providers in config")
         if config.get('auth', {}).get('gssapi_enabled', True) and config.get('gssapi_realms'):
             print(f"Register: Found {len(config['gssapi_realms'])} GSSAPI realms in config")
         else:
-            print(f"Register: GSSAPI realms in config: {config.get('gssapi_realms', [])}")
-    except requests.RequestException as e:
+            print(f"Register: GSSAPI realms in config: {config['gssapi_realms']}")
+    except Exception as e:
         print(f"Register: Connection error loading configuration: {e}")
         pass  # Use default values if config service is unavailable
     

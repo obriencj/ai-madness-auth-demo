@@ -11,11 +11,7 @@ Assisted-By: Claude Sonnet 4 (AI Assistant)
 License: GNU General Public License v3.0
 """
 
-import requests
-from flask import Blueprint, render_template, session, redirect, url_for
-
-# Import shared utilities
-from .utils import BACKEND_URL, extract_api_data
+from flask import Blueprint, render_template, session, redirect, url_for, g
 
 # Create dashboard blueprint
 dashboard_bp = Blueprint('dashboard', __name__)
@@ -37,10 +33,14 @@ def dashboard():
 def hello():
     """Simple hello endpoint for testing"""
     try:
-        response = requests.get(f'{BACKEND_URL}/api/v1/hello')
-        message = extract_api_data(response, 'message', default='Hello from frontend!')
+        # Use injected client instead of direct requests
+        response = g.client.hello()
+        if response.is_success:
+            message = response.message
+        else:
+            message = 'Hello from frontend! (Backend error)'
         return render_template('hello.html', message=message)
-    except requests.RequestException:
+    except Exception:
         return render_template('hello.html', message='Hello from frontend! (Backend unavailable)')
 
 # The end.

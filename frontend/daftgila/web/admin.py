@@ -13,12 +13,8 @@ Assisted-By: Claude Sonnet 4 (AI Assistant)
 License: GNU General Public License v3.0
 """
 
-import requests
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session
-from flask import jsonify # Added missing import for jsonify
-
-# Import shared utilities
-from .utils import BACKEND_URL, extract_api_data
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, g
+from flask import jsonify
 
 # Create admin blueprint
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
@@ -31,26 +27,33 @@ from .auth import admin_required
 def admin():
     """Admin dashboard - user management"""
     try:
-        headers = {'Authorization': f'Bearer {session["access_token"]}'}
-        print(f"Admin route: Making request to {BACKEND_URL}/api/v1/admin/users")
-        response = requests.get(f'{BACKEND_URL}/api/v1/admin/users', headers=headers)
-        print(f"Admin route: Response status: {response.status_code}")
+        # Use injected client instead of direct requests
+        print("Admin route: Fetching users via DaftGilaClient")
+        response = g.client.admin.get_users()
+        print(f"Admin route: Response success: {response.is_success}")
         
-        users = extract_api_data(response, 'users', default=[])
-        print(f"Admin route: Loaded {len(users)} users")
-        
-        # Fetch OAuth account information for each user
-        for user in users:
-            try:
-                oauth_response = requests.get(
-                    f'{BACKEND_URL}/api/v1/admin/users/{user["id"]}/oauth-accounts',
-                    headers=headers
-                )
-                user['oauth_accounts'] = extract_api_data(oauth_response, 'oauth_accounts', default=[])
-            except requests.RequestException:
-                user['oauth_accounts'] = []
-                print(f"Failed to fetch OAuth accounts for user {user['id']}")
-    except requests.RequestException as e:
+        if response.is_success:
+            users = response.data['users']
+            print(f"Admin route: Loaded {len(users)} users")
+            
+            # Fetch OAuth account information for each user
+            for user in users:
+                try:
+                    oauth_response = g.client.admin.get_user_oauth_accounts(user["id"])
+                    if oauth_response.is_success:
+                        user['oauth_accounts'] = oauth_response.data['oauth_accounts']
+                    else:
+                        user['oauth_accounts'] = []
+                        print(f"Failed to fetch OAuth accounts for user {user['id']}: {oauth_response.message}")
+                except Exception as e:
+                    user['oauth_accounts'] = []
+                    print(f"Exception fetching OAuth accounts for user {user['id']}: {e}")
+        else:
+            users = []
+            flash(f'Error fetching users: {response.message}', 'error')
+            print(f"Admin route: Error - {response.message}")
+            
+    except Exception as e:
         users = []
         flash(f'Connection error: {str(e)}', 'error')
         print(f"Admin route: Connection error - {str(e)}")
@@ -69,17 +72,20 @@ def create_user():
     }
     
     try:
-        headers = {'Authorization': f'Bearer {session["access_token"]}'}
-        response = requests.post(f'{BACKEND_URL}/api/v1/register', 
-                               json=data, headers=headers)
+        # Use injected client instead of direct requests
+        response = g.client.admin.create_user(
+            username=data['username'],
+            email=data['email'],
+            password=data['password'],
+            is_admin=data['is_admin']
+        )
         
-        if response.status_code == 201:
+        if response.is_success:
             flash('User created successfully', 'success')
         else:
-            error_message = extract_api_data(response, 'error', default='Unknown error')
-            flash(f'Error: {error_message}', 'error')
-    except requests.RequestException:
-        flash('Connection error', 'error')
+            flash(f'Error: {response.message}', 'error')
+    except Exception as e:
+        flash(f'Connection error: {str(e)}', 'error')
     
     return redirect(url_for('admin.admin'))
 
@@ -98,40 +104,32 @@ def update_user(user_id):
         data['password'] = password
     
     try:
-        headers = {'Authorization': f'Bearer {session["access_token"]}'}
-        response = requests.put(
-            f'{BACKEND_URL}/api/v1/admin/users/{user_id}',
-            json=data, headers=headers
-        )
+        # Use injected client instead of direct requests
+        response = g.client.admin.update_user(user_id, **data)
         
-        if response.status_code == 200:
+        if response.is_success:
             flash('User updated successfully', 'success')
         else:
-            error_message = extract_api_data(response, 'error', default='Unknown error')
-            flash(f'Error: {error_message}', 'error')
-    except requests.RequestException:
-        flash('Connection error', 'error')
+            flash(f'Error: {response.message}', 'error')
+    except Exception as e:
+        flash(f'Connection error: {str(e)}', 'error')
     
     return redirect(url_for('admin.admin'))
 
-@admin_bp.route('/api/users/<int:user_id>/oauth-accounts/<int:oauth_account_id>/remove', methods=['POST'])
+@admin_bp.route('/api/users/<int:user_id>/delete', methods=['POST'])
 @admin_required
-def remove_oauth_account(user_id, oauth_account_id):
-    """Remove OAuth account from user"""
+def delete_user(user_id):
+    """Delete user"""
     try:
-        headers = {'Authorization': f'Bearer {session["access_token"]}'}
-        response = requests.delete(
-            f'{BACKEND_URL}/api/v1/admin/users/{user_id}/oauth-accounts/{oauth_account_id}',
-            headers=headers
-        )
+        # Use injected client instead of direct requests
+        response = g.client.admin.delete_user(user_id)
         
-        if response.status_code == 200:
-            flash('OAuth account removed successfully', 'success')
+        if response.is_success:
+            flash('User deleted successfully', 'success')
         else:
-            error_message = extract_api_data(response, 'error', default='Unknown error')
-            flash(f'Error: {error_message}', 'error')
-    except requests.RequestException:
-        flash('Connection error', 'error')
+            flash(f'Error: {response.message}', 'error')
+    except Exception as e:
+        flash(f'Connection error: {str(e)}', 'error')
     
     return redirect(url_for('admin.admin'))
 
@@ -140,23 +138,22 @@ def remove_oauth_account(user_id, oauth_account_id):
 def oauth_providers():
     """OAuth provider management page"""
     try:
-        headers = {'Authorization': f'Bearer {session["access_token"]}'}
-        response = requests.get(
-            f'{BACKEND_URL}/api/v1/admin/oauth-providers',
-            headers=headers
-        )
+        # Use injected client instead of direct requests
+        response = g.client.admin.get_oauth_providers()
         
-        providers = extract_api_data(response, 'providers', default=[])
-        if providers:
-            return render_template('oauth_providers.html', providers=providers)
+        if response.is_success:
+            providers = response.data['oauth_providers']
         else:
-            flash('Failed to load OAuth providers', 'error')
-            return redirect(url_for('admin.admin'))
-    except requests.RequestException:
-        flash('Connection error', 'error')
-        return redirect(url_for('admin.admin'))
+            providers = []
+            flash(f'Error fetching OAuth providers: {response.message}', 'error')
+            
+    except Exception as e:
+        providers = []
+        flash(f'Connection error: {str(e)}', 'error')
+    
+    return render_template('oauth_providers.html', providers=providers)
 
-@admin_bp.route('/oauth-providers/create', methods=['POST'])
+@admin_bp.route('/api/oauth-providers', methods=['POST'])
 @admin_required
 def create_oauth_provider():
     """Create new OAuth provider"""
@@ -167,291 +164,180 @@ def create_oauth_provider():
         'authorize_url': request.form.get('authorize_url'),
         'token_url': request.form.get('token_url'),
         'userinfo_url': request.form.get('userinfo_url'),
-        'scope': request.form.get('scope'),
-        'is_active': request.form.get('is_active') == 'on'
+        'scope': request.form.get('scope', 'read profile')
     }
     
     try:
-        headers = {'Authorization': f'Bearer {session["access_token"]}'}
-        response = requests.post(
-            f'{BACKEND_URL}/api/v1/admin/oauth-providers',
-            json=data, headers=headers
+        # Use injected client instead of direct requests
+        response = g.client.admin.create_oauth_provider(
+            name=data['name'],
+            client_id=data['client_id'],
+            client_secret=data['client_secret'],
+            authorize_url=data['authorize_url'],
+            token_url=data['token_url'],
+            userinfo_url=data['userinfo_url'],
+            scope=data['scope']
         )
         
-        if response.status_code == 201:
+        if response.is_success:
             flash('OAuth provider created successfully', 'success')
         else:
-            error_message = extract_api_data(response, 'error', default='Unknown error')
-            flash(f'Error: {error_message}', 'error')
-    except requests.RequestException:
-        flash('Connection error', 'error')
+            flash(f'Error: {response.message}', 'error')
+    except Exception as e:
+        flash(f'Connection error: {str(e)}', 'error')
     
     return redirect(url_for('admin.oauth_providers'))
 
-@admin_bp.route('/oauth-providers/<int:provider_id>/update', methods=['POST'])
+@admin_bp.route('/api/oauth-providers/<int:provider_id>', methods=['POST'])
 @admin_required
 def update_oauth_provider(provider_id):
     """Update OAuth provider"""
-    data = {
-        'name': request.form.get('name'),
-        'client_id': request.form.get('client_id'),
-        'authorize_url': request.form.get('authorize_url'),
-        'token_url': request.form.get('token_url'),
-        'userinfo_url': request.form.get('userinfo_url'),
-        'scope': request.form.get('scope'),
-        'is_active': request.form.get('is_active') == 'on'
-    }
+    data = {}
     
-    # Only include client_secret if it's provided (to avoid overwriting with empty string)
-    client_secret = request.form.get('client_secret')
-    if client_secret:
-        data['client_secret'] = client_secret
+    # Only include fields that are provided
+    if request.form.get('name'):
+        data['name'] = request.form.get('name')
+    if request.form.get('client_id'):
+        data['client_id'] = request.form.get('client_id')
+    if request.form.get('client_secret'):
+        data['client_secret'] = request.form.get('client_secret')
+    if request.form.get('authorize_url'):
+        data['authorize_url'] = request.form.get('authorize_url')
+    if request.form.get('token_url'):
+        data['token_url'] = request.form.get('token_url')
+    if request.form.get('userinfo_url'):
+        data['userinfo_url'] = request.form.get('userinfo_url')
+    if request.form.get('scope'):
+        data['scope'] = request.form.get('scope')
+    
+    if not data:
+        flash('No fields to update', 'error')
+        return redirect(url_for('admin.oauth_providers'))
     
     try:
-        headers = {'Authorization': f'Bearer {session["access_token"]}'}
-        response = requests.put(
-            f'{BACKEND_URL}/api/v1/admin/oauth-providers/{provider_id}',
-            json=data, headers=headers
-        )
+        # Use injected client instead of direct requests
+        response = g.client.admin.update_oauth_provider(provider_id, **data)
         
-        if response.status_code == 200:
+        if response.is_success:
             flash('OAuth provider updated successfully', 'success')
         else:
-            error_message = extract_api_data(response, 'error', default='Unknown error')
-            flash(f'Error: {error_message}', 'error')
-    except requests.RequestException:
-        flash('Connection error', 'error')
+            flash(f'Error: {response.message}', 'error')
+    except Exception as e:
+        flash(f'Connection error: {str(e)}', 'error')
     
     return redirect(url_for('admin.oauth_providers'))
 
-@admin_bp.route('/oauth-providers/<int:provider_id>/delete', methods=['POST'])
+@admin_bp.route('/api/oauth-providers/<int:provider_id>/delete', methods=['POST'])
 @admin_required
 def delete_oauth_provider(provider_id):
     """Delete OAuth provider"""
     try:
-        headers = {'Authorization': f'Bearer {session["access_token"]}'}
-        response = requests.delete(
-            f'{BACKEND_URL}/api/v1/admin/oauth-providers/{provider_id}',
-            headers=headers
-        )
+        # Use injected client instead of direct requests
+        response = g.client.admin.delete_oauth_provider(provider_id)
         
-        if response.status_code == 200:
+        if response.is_success:
             flash('OAuth provider deleted successfully', 'success')
         else:
-            error_message = extract_api_data(response, 'error', default='Unknown error')
-            flash(f'Error: {error_message}', 'error')
-    except requests.RequestException:
-        flash('Connection error', 'error')
+            flash(f'Error: {response.message}', 'error')
+    except Exception as e:
+        flash(f'Connection error: {str(e)}', 'error')
     
     return redirect(url_for('admin.oauth_providers'))
-
-@admin_bp.route('/sessions')
-@admin_required
-def jwt_sessions():
-    """JWT sessions management page"""
-    try:
-        headers = {'Authorization': f'Bearer {session["access_token"]}'}
-        response = requests.get(
-            f'{BACKEND_URL}/api/v1/admin/sessions',
-            headers=headers
-        )
-        
-        sessions = extract_api_data(response, 'sessions', default=[])
-        if sessions:
-            return render_template('jwt_sessions.html', sessions=sessions)
-        else:
-            flash('Failed to load JWT sessions', 'error')
-            return redirect(url_for('admin.admin'))
-    except requests.RequestException:
-        flash('Connection error', 'error')
-        return redirect(url_for('admin.admin'))
-
-@admin_bp.route('/config')
-@admin_required
-def config():
-    """System configuration management page"""
-    try:
-        headers = {'Authorization': f'Bearer {session["access_token"]}'}
-        response = requests.get(
-            f'{BACKEND_URL}/api/v1/admin/config',
-            headers=headers
-        )
-        
-        config_data = extract_api_data(response, default={})
-        return render_template('config.html', config=config_data)
-    except requests.RequestException:
-        flash('Connection error', 'error')
-        return redirect(url_for('admin.admin'))
-
-@admin_bp.route('/sessions/<int:session_id>/expire', methods=['POST'])
-@admin_required
-def expire_session(session_id):
-    """Expire a specific JWT session"""
-    try:
-        headers = {'Authorization': f'Bearer {session["access_token"]}'}
-        response = requests.post(
-            f'{BACKEND_URL}/api/v1/admin/sessions/{session_id}/expire',
-            headers=headers
-        )
-        
-        if response.status_code == 200:
-            return jsonify({'message': 'Session expired successfully'}), 200
-        else:
-            error_message = extract_api_data(response, 'error', default='Unknown error')
-            return jsonify({'error': error_message}), 400
-    except requests.RequestException:
-        return jsonify({'error': 'Connection error'}), 500
-
-@admin_bp.route('/sessions/expire-all', methods=['POST'])
-@admin_required
-def expire_all_sessions():
-    """Expire all active JWT sessions"""
-    try:
-        headers = {'Authorization': f'Bearer {session["access_token"]}'}
-        response = requests.post(
-            f'{BACKEND_URL}/api/v1/admin/sessions/expire-all',
-            headers=headers
-        )
-        
-        if response.status_code == 200:
-            return jsonify({'message': 'All sessions expired successfully'}), 200
-        else:
-            error_message = extract_api_data(response, 'error', default='Unknown error')
-            return jsonify({'error': error_message}), 400
-    except requests.RequestException:
-        return jsonify({'error': 'Connection error'}), 500
 
 @admin_bp.route('/gssapi-realms')
 @admin_required
 def gssapi_realms():
     """GSSAPI realm management page"""
     try:
-        headers = {'Authorization': f'Bearer {session["access_token"]}'}
-        response = requests.get(
-            f'{BACKEND_URL}/api/v1/auth/gssapi/realms',
-            headers=headers
-        )
+        # Use injected client instead of direct requests
+        response = g.client.admin.get_gssapi_realms()
         
-        realms = extract_api_data(response, 'realms', default=[])
-        if realms:
-            return render_template('gssapi_realms.html', realms=realms)
+        if response.is_success:
+            realms = response.data['gssapi_realms']
         else:
-            flash('Failed to load GSSAPI realms', 'error')
-            return redirect(url_for('admin.admin'))
-    except requests.RequestException:
-        flash('Connection error', 'error')
-        return redirect(url_for('admin.admin'))
+            realms = []
+            flash(f'Error fetching GSSAPI realms: {response.message}', 'error')
+            
+    except Exception as e:
+        realms = []
+        flash(f'Connection error: {str(e)}', 'error')
+    
+    return render_template('gssapi_realms.html', realms=realms)
 
-@admin_bp.route('/gssapi-realms/create', methods=['POST'])
+@admin_bp.route('/api/gssapi-realms', methods=['POST'])
 @admin_required
 def create_gssapi_realm():
     """Create new GSSAPI realm"""
-    # Handle file upload for keytab
-    keytab_file = request.files.get('keytab_file')
-    keytab_data = None
-    
-    if keytab_file and keytab_file.filename:
-        try:
-            # Read file content and encode as base64
-            import base64
-            keytab_content = keytab_file.read()
-            keytab_data = base64.b64encode(keytab_content).decode('utf-8')
-        except Exception as e:
-            flash(f'Error processing keytab file: {str(e)}', 'error')
-            return redirect(url_for('admin.gssapi_realms'))
-    
     data = {
         'name': request.form.get('name'),
-        'realm': request.form.get('realm'),
-        'kdc_hosts': request.form.get('kdc_hosts').split(',') if request.form.get('kdc_hosts') else [],
-        'admin_server': request.form.get('admin_server') or None,
-        'service_principal': request.form.get('service_principal'),
-        'default_realm': request.form.get('default_realm') == 'on',
-        'is_active': request.form.get('is_active') == 'on'
+        'keytab_data': request.form.get('keytab_data'),
+        'description': request.form.get('description', '')
     }
     
-    # Only include keytab_data if file was uploaded
-    if keytab_data:
-        data['keytab_data'] = keytab_data
-    
     try:
-        headers = {'Authorization': f'Bearer {session["access_token"]}'}
-        response = requests.post(
-            f'{BACKEND_URL}/api/v1/auth/gssapi/realms',
-            json=data, headers=headers
+        # Use injected client instead of direct requests
+        response = g.client.admin.create_gssapi_realm(
+            name=data['name'],
+            keytab_data=data['keytab_data'],
+            description=data['description']
         )
         
-        if response.status_code == 201:
+        if response.is_success:
             flash('GSSAPI realm created successfully', 'success')
         else:
-            error_message = extract_api_data(response, 'error', default='Unknown error')
-            flash(f'Error: {error_message}', 'error')
-    except requests.RequestException:
-        flash('Connection error', 'error')
+            flash(f'Error: {response.message}', 'error')
+    except Exception as e:
+        flash(f'Connection error: {str(e)}', 'error')
     
     return redirect(url_for('admin.gssapi_realms'))
 
-@admin_bp.route('/gssapi-realms/<int:realm_id>/update', methods=['POST'])
+@admin_bp.route('/api/gssapi-realms/<int:realm_id>', methods=['POST'])
 @admin_required
 def update_gssapi_realm(realm_id):
     """Update GSSAPI realm"""
-    data = {
-        'name': request.form.get('name'),
-        'realm': request.form.get('realm'),
-        'kdc_hosts': request.form.get('kdc_hosts').split(',') if request.form.get('kdc_hosts') else [],
-        'admin_server': request.form.get('admin_server') or None,
-        'service_principal': request.form.get('service_principal'),
-        'default_realm': request.form.get('default_realm') == 'on',
-        'is_active': request.form.get('is_active') == 'on'
-    }
+    data = {}
     
-    # Only include keytab_data if it's provided
-    keytab_file = request.files.get('keytab_file')
-    if keytab_file and keytab_file.filename:
-        try:
-            import base64
-            keytab_content = keytab_file.read()
-            data['keytab_data'] = base64.b64encode(keytab_content).decode('utf-8')
-        except Exception as e:
-            flash(f'Error processing keytab file: {str(e)}', 'error')
-            return redirect(url_for('admin.gssapi_realms'))
+    # Only include fields that are provided
+    if request.form.get('name'):
+        data['name'] = request.form.get('name')
+    if request.form.get('keytab_data'):
+        data['keytab_data'] = request.form.get('keytab_data')
+    if request.form.get('description'):
+        data['description'] = request.form.get('description')
+    
+    if not data:
+        flash('No fields to update', 'error')
+        return redirect(url_for('admin.gssapi_realms'))
     
     try:
-        headers = {'Authorization': f'Bearer {session["access_token"]}'}
-        response = requests.put(
-            f'{BACKEND_URL}/api/v1/auth/gssapi/realms/{realm_id}',
-            json=data, headers=headers
-        )
+        # Use injected client instead of direct requests
+        response = g.client.admin.update_gssapi_realm(realm_id, **data)
         
-        if response.status_code == 200:
+        if response.is_success:
             flash('GSSAPI realm updated successfully', 'success')
         else:
-            error_message = extract_api_data(response, 'error', default='Unknown error')
-            flash(f'Error: {error_message}', 'error')
-    except requests.RequestException:
-        flash('Connection error', 'error')
+            flash(f'Error: {response.message}', 'error')
+    except Exception as e:
+        flash(f'Connection error: {str(e)}', 'error')
     
     return redirect(url_for('admin.gssapi_realms'))
 
-@admin_bp.route('/gssapi-realms/<int:realm_id>/delete', methods=['POST'])
+@admin_bp.route('/api/gssapi-realms/<int:realm_id>/delete', methods=['POST'])
 @admin_required
 def delete_gssapi_realm(realm_id):
     """Delete GSSAPI realm"""
     try:
-        headers = {'Authorization': f'Bearer {session["access_token"]}'}
-        response = requests.delete(
-            f'{BACKEND_URL}/api/v1/auth/gssapi/realms/{realm_id}',
-            headers=headers
-        )
+        # Use injected client instead of direct requests
+        response = g.client.admin.delete_gssapi_realm(realm_id)
         
-        if response.status_code == 200:
+        if response.is_success:
             flash('GSSAPI realm deleted successfully', 'success')
         else:
-            error_message = extract_api_data(response, 'error', default='Unknown error')
-            flash(f'Error: {error_message}', 'error')
-    except requests.RequestException:
-        flash('Connection error', 'error')
+            flash(f'Error: {response.message}', 'error')
+    except Exception as e:
+        flash(f'Connection error: {str(e)}', 'error')
     
     return redirect(url_for('admin.gssapi_realms'))
+
 
 # The end.

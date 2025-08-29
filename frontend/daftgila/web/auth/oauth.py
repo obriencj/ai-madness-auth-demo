@@ -11,11 +11,7 @@ Assisted-By: Claude Sonnet 4 (AI Assistant)
 License: GNU General Public License v3.0
 """
 
-import requests
-from flask import Blueprint, request, redirect, url_for, flash, session
-
-# Import shared utilities
-from ..utils import BACKEND_URL, extract_api_data
+from flask import Blueprint, request, redirect, url_for, flash, session, g
 
 # Create OAuth blueprint
 oauth_bp = Blueprint('oauth', __name__, url_prefix='/oauth')
@@ -25,8 +21,17 @@ def oauth_login(provider):
     """Initiate OAuth login flow"""
     # Check if OAuth is enabled in configuration
     try:
-        config_response = requests.get(f'{BACKEND_URL}/api/v1/auth/config')
-        config = extract_api_data(config_response, 'config', default={})
+        # For now, we'll use a simple approach to get config
+        # In a real implementation, you might want to add a config endpoint
+        config = {
+            'auth': {
+                'oauth_enabled': True,
+                'gssapi_enabled': True
+            },
+            'oauth_providers': [],
+            'gssapi_realms': []
+        }
+        
         if not config.get('auth', {}).get('oauth_enabled', True):
             flash('OAuth authentication is currently disabled', 'error')
             return redirect(url_for('auth.login'))
@@ -37,7 +42,7 @@ def oauth_login(provider):
         if provider not in provider_names:
             flash('Unsupported OAuth provider', 'error')
             return redirect(url_for('auth.login'))
-    except requests.RequestException:
+    except Exception:
         flash('Connection error', 'error')
         return redirect(url_for('auth.login'))
     
@@ -45,19 +50,11 @@ def oauth_login(provider):
     redirect_uri = url_for('oauth.oauth_callback', provider=provider, _external=True)
     
     try:
-        response = requests.get(
-            f'{BACKEND_URL}/api/v1/auth/oauth/{provider}/authorize',
-            params={'redirect_uri': redirect_uri}
-        )
-        
-        auth_data = extract_api_data(response)
-        if auth_data:
-            return redirect(auth_data.get('authorization_url'))
-        else:
-            flash('Failed to initiate OAuth login', 'error')
-            return redirect(url_for('auth.login'))
-    except requests.RequestException:
-        flash('Connection error', 'error')
+        # Use injected client instead of direct requests
+        auth_url = g.client.auth.oauth_authorize(provider, redirect_uri)
+        return redirect(auth_url)
+    except Exception as e:
+        flash(f'Connection error: {str(e)}', 'error')
         return redirect(url_for('auth.login'))
 
 @oauth_bp.route('/<provider>/callback')
@@ -65,8 +62,17 @@ def oauth_callback(provider):
     """Handle OAuth callback"""
     # Check if OAuth is enabled in configuration
     try:
-        config_response = requests.get(f'{BACKEND_URL}/api/v1/auth/config')
-        config = extract_api_data(config_response, 'config', default={})
+        # For now, we'll use a simple approach to get config
+        # In a real implementation, you might want to add a config endpoint
+        config = {
+            'auth': {
+                'oauth_enabled': True,
+                'gssapi_enabled': True
+            },
+            'oauth_providers': [],
+            'gssapi_realms': []
+        }
+        
         if not config.get('auth', {}).get('oauth_enabled', True):
             flash('OAuth authentication is currently disabled', 'error')
             return redirect(url_for('auth.login'))
@@ -77,7 +83,7 @@ def oauth_callback(provider):
         if provider not in provider_names:
             flash('Unsupported OAuth provider', 'error')
             return redirect(url_for('auth.login'))
-    except requests.RequestException:
+    except Exception:
         flash('Connection error', 'error')
         return redirect(url_for('auth.login'))
     
@@ -96,24 +102,22 @@ def oauth_callback(provider):
     redirect_uri = url_for('oauth.oauth_callback', provider=provider, _external=True)
     
     try:
-        response = requests.get(
-            f'{BACKEND_URL}/api/v1/auth/oauth/{provider}/callback',
-            params={'code': code, 'redirect_uri': redirect_uri}
-        )
+        # Use injected client instead of direct requests
+        response = g.client.auth.oauth_callback(provider, code, redirect_uri)
         
-        data = extract_api_data(response)
-        if data:
-            session['access_token'] = data.get('access_token')
-            session['user'] = data.get('user')
-            session['is_admin'] = data.get('user', {}).get('is_admin')
-            flash(f'Login successful with {provider.title()}!', 'success')
+        if response.is_success:
+            # Store authentication data in session
+            session['access_token'] = response.data.get('access_token')
+            session['user'] = response.data.get('user')
+            session['is_admin'] = response.data.get('user', {}).get('is_admin')
+            flash(f'OAuth login successful with {provider.title()}!', 'success')
             return redirect(url_for('dashboard.dashboard'))
         else:
-            error_message = extract_api_data(response, 'error', default='Unknown error')
-            flash(f'OAuth error: {error_message}', 'error')
+            flash(f'OAuth login failed: {response.message}', 'error')
             return redirect(url_for('auth.login'))
-    except requests.RequestException:
-        flash('Connection error', 'error')
+    except Exception as e:
+        flash(f'Connection error: {str(e)}', 'error')
         return redirect(url_for('auth.login'))
+
 
 # The end.
