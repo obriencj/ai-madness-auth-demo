@@ -10,7 +10,7 @@ License: GNU General Public License v3.0
 """
 
 import os
-from flask import Flask
+from flask import Flask, session
 
 def create_app():
     """Create and configure the Flask application"""
@@ -37,6 +37,19 @@ def create_app():
 
 
 app = create_app()
+
+
+@app.context_processor
+def inject_user():
+    """Inject user information into all templates"""
+    if 'access_token' in session:
+        # Use session data for template context to avoid circular imports
+        return {
+            'current_user': session.get('user'), 
+            'is_authenticated': True
+        }
+    
+    return {'current_user': None, 'is_authenticated': False}
 
 
 # The end.

@@ -30,21 +30,8 @@ def account():
     if 'user' not in session:
         return redirect(url_for('auth.login'))
     
-    user = session['user']
-    
-    # Get user's OAuth accounts
-    try:
-        headers = {'Authorization': f'Bearer {session["access_token"]}'}
-        response = requests.get(
-            f'{BACKEND_URL}/api/v1/users/{user["id"]}/oauth-accounts',
-            headers=headers
-        )
-        
-        oauth_accounts = extract_api_data(response, 'oauth_accounts', default=[])
-    except requests.RequestException:
-        oauth_accounts = []
-        flash('Failed to load OAuth accounts', 'error')
-    
+    response = requests.get(f"{BACKEND_URL}/api/v1/account")
+    account = extract_api_data(response, 'user', default={})
     # Get configuration to check if OAuth is enabled
     config = {}
     try:
@@ -53,7 +40,7 @@ def account():
     except requests.RequestException:
         pass  # Use default values if config service is unavailable
     
-    return render_template('account.html', user=user, oauth_accounts=oauth_accounts, config=config)
+    return render_template('account.html', account=account, config=config)
 
 @user_bp.route('/update', methods=['POST'])
 @login_required
