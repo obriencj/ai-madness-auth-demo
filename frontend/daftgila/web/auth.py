@@ -86,6 +86,7 @@ def login():
             
             if response.status_code == 200:
                 data = extract_api_data(response)
+                print(f"Data: {data}")
                 if data:
                     session['access_token'] = data.get('access_token')
                     session['user'] = data.get('user')

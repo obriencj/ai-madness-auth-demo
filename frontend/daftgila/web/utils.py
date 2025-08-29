@@ -45,11 +45,16 @@ def extract_api_data(response, *keys, default=None):
         # Get multiple values
         users, count = extract_api_data(response, 'users', 'total_count', default=([], 0))
     """
+
+    # print(f"extract_api_data: {response}")
+
     try:
         if response.status_code != 200:
             return default
-            
+
         response_data = response.json()
+        # print(f"response_data: {response_data}")
+
         if not response_data.get('success'):
             return default
             

@@ -287,8 +287,8 @@ def success_response(message, data=None, status_code=200):
         tuple: (response, status_code)
     """
     response = {'success': True, 'message': message}
-    if data:
-        response.update(data)
+    if data is not None:
+        response['data'] = data
     return jsonify(response), status_code
 
 
@@ -305,7 +305,7 @@ def error_response(error_message, status_code=400, details=None):
         tuple: (response, status_code)
     """
     response = {'success': False, 'error': error_message}
-    if details:
+    if details is not None:
         response['details'] = details
     return jsonify(response), status_code
 
