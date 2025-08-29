@@ -694,4 +694,191 @@ def delete_config_version(version_id):
         return error_response(f'Failed to delete configuration: {str(e)}', 500)
 
 
+# GSSAPI Realm Management Routes
+@admin_bp.route('/gssapi-realms', methods=['GET'])
+@jwt_required()
+@admin_required
+def get_gssapi_realms_admin():
+    """Get all GSSAPI realms (admin only)."""
+    try:
+        realms = GSSAPIRealm.query.all()
+        return success_response(
+            'GSSAPI realms retrieved successfully',
+            {'gssapi_realms': [format_gssapi_realm_response(realm) for realm in realms]}
+        )
+    except Exception as e:
+        return error_response(f'Failed to retrieve GSSAPI realms: {str(e)}', 500)
+
+
+@admin_bp.route('/gssapi-realms', methods=['POST'])
+@jwt_required()
+@admin_required
+def create_gssapi_realm():
+    """Create new GSSAPI realm (admin only)."""
+    data = request.get_json()
+    
+    # Validate required fields
+    required_fields = ['name', 'realm', 'kdc_hosts', 'service_principal']
+    is_valid, error_msg = validate_required_fields(data, required_fields)
+    if not is_valid:
+        return error_response(error_msg, 400)
+    
+    # Check if realm name already exists
+    if GSSAPIRealm.query.filter_by(name=data['name']).first():
+        return error_response('Realm name already exists', 400)
+    
+    # Create new realm
+    new_realm = GSSAPIRealm(
+        name=data['name'],
+        realm=data['realm'],
+        kdc_hosts=data['kdc_hosts'],
+        admin_server=data.get('admin_server'),
+        service_principal=data['service_principal'],
+        default_realm=data.get('default_realm', False),
+        is_active=data.get('is_active', True)
+    )
+    
+    try:
+        db.session.add(new_realm)
+        db.session.commit()
+        
+        # Log the action
+        current_user = get_current_user()
+        log_gssapi_action(
+            user_id=current_user.id,
+            action=AuditActions.GSSAPI_REALM_CREATED,
+            realm_id=new_realm.id,
+            details={'name': new_realm.name, 'realm': new_realm.realm}
+        )
+        
+        return success_response(
+            'GSSAPI realm created successfully',
+            {'realm': format_gssapi_realm_response(new_realm)},
+            201
+        )
+    except Exception as e:
+        db.session.rollback()
+        return error_response(f'Failed to create realm: {str(e)}', 500)
+
+
+@admin_bp.route('/gssapi-realms/<int:realm_id>', methods=['GET'])
+@jwt_required()
+@admin_required
+def get_gssapi_realm_admin(realm_id):
+    """Get a specific GSSAPI realm (admin only)."""
+    realm = GSSAPIRealm.query.get(realm_id)
+    if not realm:
+        return error_response('GSSAPI realm not found', 404)
+    
+    return success_response(
+        'GSSAPI realm retrieved successfully',
+        {'realm': format_gssapi_realm_response(realm)}
+    )
+
+
+@admin_bp.route('/gssapi-realms/<int:realm_id>', methods=['PUT'])
+@jwt_required()
+@admin_required
+def update_gssapi_realm(realm_id):
+    """Update GSSAPI realm (admin only)."""
+    realm = GSSAPIRealm.query.get(realm_id)
+    if not realm:
+        return error_response('GSSAPI realm not found', 404)
+    
+    data = request.get_json()
+    if not data:
+        return error_response('Request data is required', 400)
+    
+    # Track changes for audit
+    changes = {}
+    
+    # Update fields if provided
+    if 'name' in data and realm.name != data['name']:
+        # Check if new name conflicts with existing realm
+        existing_realm = GSSAPIRealm.query.filter_by(name=data['name']).first()
+        if existing_realm and existing_realm.id != realm_id:
+            return error_response('Realm name already exists', 400)
+        
+        changes['name'] = {'old': realm.name, 'new': data['name']}
+        realm.name = data['name']
+    
+    if 'realm' in data and realm.realm != data['realm']:
+        changes['realm'] = {'old': realm.realm, 'new': data['realm']}
+        realm.realm = data['realm']
+    
+    if 'kdc_hosts' in data:
+        changes['kdc_hosts'] = {'changed': True}
+        realm.kdc_hosts = data['kdc_hosts']
+    
+    if 'admin_server' in data:
+        changes['admin_server'] = {'old': realm.admin_server, 'new': data['admin_server']}
+        realm.admin_server = data['admin_server']
+    
+    if 'service_principal' in data and realm.service_principal != data['service_principal']:
+        changes['service_principal'] = {'old': realm.service_principal, 'new': data['service_principal']}
+        realm.service_principal = data['service_principal']
+    
+    if 'default_realm' in data:
+        if data['default_realm'] and not realm.default_realm:
+            # If setting this as default, unset other defaults
+            GSSAPIRealm.query.filter_by(default_realm=True).update({'default_realm': False})
+        changes['default_realm'] = {'old': realm.default_realm, 'new': data['default_realm']}
+        realm.default_realm = data['default_realm']
+    
+    if 'is_active' in data:
+        changes['is_active'] = {'old': realm.is_active, 'new': data['is_active']}
+        realm.is_active = data['is_active']
+    
+    if not changes:
+        return error_response('No fields to update', 400)
+    
+    try:
+        db.session.commit()
+        
+        # Log the action
+        current_user = get_current_user()
+        log_gssapi_action(
+            user_id=current_user.id,
+            action=AuditActions.GSSAPI_REALM_UPDATED,
+            realm_id=realm.id,
+            details=changes
+        )
+        
+        return success_response(
+            'GSSAPI realm updated successfully',
+            {'realm': format_gssapi_realm_response(realm)}
+        )
+    except Exception as e:
+        db.session.rollback()
+        return error_response(f'Failed to update realm: {str(e)}', 500)
+
+
+@admin_bp.route('/gssapi-realms/<int:realm_id>', methods=['DELETE'])
+@jwt_required()
+@admin_required
+def delete_gssapi_realm(realm_id):
+    """Delete GSSAPI realm (admin only)."""
+    realm = GSSAPIRealm.query.get(realm_id)
+    if not realm:
+        return error_response('GSSAPI realm not found', 404)
+    
+    try:
+        # Log the action before deletion
+        current_user = get_current_user()
+        log_gssapi_action(
+            user_id=current_user.id,
+            action=AuditActions.GSSAPI_REALM_DELETED,
+            realm_id=realm.id,
+            details={'name': realm.name, 'realm': realm.realm}
+        )
+        
+        db.session.delete(realm)
+        db.session.commit()
+        
+        return success_response('GSSAPI realm deleted successfully')
+    except Exception as e:
+        db.session.rollback()
+        return error_response(f'Failed to delete realm: {str(e)}', 500)
+
+
 # The end.

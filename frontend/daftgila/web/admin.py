@@ -251,7 +251,7 @@ def oauth_providers():
         response = g.client.admin.get_oauth_providers()
         
         if response.is_success:
-            providers = response.data['oauth_providers']
+            providers = response.data['providers']
         else:
             providers = []
             flash(f'Error fetching OAuth providers: {response.message}', 'error')
