@@ -1,17 +1,24 @@
-# Gilla Authentication API Backend
+# Daft Gila API - Minimal Viable Authentication Platform
 
-This is the backend service for the Gilla Authentication Demo, packaged as a Python wheel for deployment in containerized environments. The backend provides a comprehensive authentication system supporting JWT, OAuth, and GSSAPI/Kerberos authentication methods.
+This is the backend service for Daft Gila, packaged as `daftgila.api` for deployment in containerized environments. The backend provides a lightweight, configurable authentication system supporting JWT, OAuth, and GSSAPI/Kerberos authentication methods with a focus on minimalism and reusability.
+
+## Project Goals
+
+- **Minimalism**: Only essential authentication features, no bloat
+- **Flexibility**: Runtime configuration for all authentication methods
+- **Reusability**: Easy integration with other services and applications
+- **OIDC Ready**: Built-in OpenID Connect provider capabilities
+- **Cross-Domain**: Domain-level session cookies for seamless cross-app authentication
 
 ## Package Structure
 
 The backend is organized as a namespace package with comprehensive authentication modules:
 
 ```
-gilla_auth/
-├── __init__.py          # Namespace package (empty)
+daftgila/
 └── api/
-    ├── __init__.py      # Flask app factory and main routes
-    ├── config.py        # Configuration management and admin endpoints
+    ├── __init__.py     # Flask app factory and main routes
+    ├── config.py       # Configuration management and admin endpoints
     ├── jwt.py          # JWT authentication utilities and session management
     ├── model.py        # Database models and SQLAlchemy setup
     ├── oauth.py        # OAuth provider integration and workflow
@@ -22,7 +29,7 @@ gilla_auth/
     └── utils.py        # Utility functions and helpers
 ```
 
-## Authentication Features
+## Core Authentication Features
 
 ### JWT Authentication
 - Secure token-based authentication with configurable expiration
@@ -49,6 +56,26 @@ gilla_auth/
 - Email validation and uniqueness
 - Admin privilege management
 - OAuth account linking and management
+
+## Key Capabilities
+
+### Runtime Configuration
+- All authentication methods configurable via database/admin interface
+- Dynamic OAuth provider addition/removal
+- GSSAPI realm configuration management
+- Feature flags and system settings
+
+### Session Management
+- Redis-based session handling
+- Configurable session expiration
+- Cross-domain session cookie support (planned)
+- Token blacklisting and invalidation
+
+### OIDC Foundation
+- Built-in support for OpenID Connect provider functionality
+- Standard OIDC endpoints and flows
+- Configurable scopes and claims
+- Client application management
 
 ## Development Setup
 
@@ -78,7 +105,7 @@ gilla_auth/
 
 3. **Run the Flask app:**
    ```bash
-   export FLASK_APP=gilla_auth.api:app
+   export FLASK_APP=daftgila.api:app
    export FLASK_ENV=development
    flask run
    ```
@@ -90,7 +117,7 @@ gilla_auth/
 
 5. **Lint code:**
    ```bash
-   python -m flake8 gilla_auth/
+   python -m flake8 daftgila/
    ```
 
 ## Building the Wheel
@@ -187,7 +214,7 @@ The service provides REST API endpoints under `/api/v1/`:
 
 The service is designed to run in containers with:
 
-- **Entry point:** `gilla_auth.api:app`
+- **Entry point:** `daftgila.api:app`
 - **Server:** Gunicorn with 4 workers
 - **Port:** 5000 (internal)
 - **User:** Non-root `gilla` user
@@ -197,7 +224,7 @@ The service is designed to run in containers with:
 Required environment variables:
 
 - `DATABASE_URL`: PostgreSQL connection string
-- `REDIS_URL`: Redis connection string  
+- `REDIS_URL`: Redis connection string
 - `JWT_SECRET_KEY`: Secret key for JWT signing
 - `GSSAPI_MASTER_KEY`: Master key for GSSAPI keytab encryption
 
@@ -208,9 +235,43 @@ The service includes health check endpoints:
 - Database connection validation
 - Redis connection validation
 
+## Integration Patterns
+
+### As an Authentication Service
+```python
+import requests
+
+# Login to get JWT token
+response = requests.post('http://localhost:5000/api/v1/auth/login', json={
+    'username': 'user@example.com',
+    'password': 'password'
+})
+token = response.json()['access_token']
+
+# Use token for authenticated requests
+headers = {'Authorization': f'Bearer {token}'}
+user_info = requests.get('http://localhost:5000/api/v1/auth/me', headers=headers)
+```
+
+### OAuth Provider Configuration
+```bash
+curl -X POST http://localhost:5000/api/v1/admin/oauth-providers \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "custom_provider",
+    "client_id": "your_client_id",
+    "client_secret": "your_client_secret",
+    "authorize_url": "https://provider.com/oauth/authorize",
+    "token_url": "https://provider.com/oauth/token",
+    "userinfo_url": "https://provider.com/oauth/userinfo",
+    "scope": "read profile"
+  }'
+```
+
 ## Development Workflow
 
-1. **Code changes:** Modify files in `gilla_auth/api/`
+1. **Code changes:** Modify files in `daftgila/api/`
 2. **Testing:** Run tests with `python -m nose`
 3. **Linting:** Check code quality with `python -m flake8`
 4. **Building:** Create wheel with `python -m build`
@@ -263,5 +324,3 @@ python -m nose test_gssapi.py
 GNU General Public License v3 (GPLv3)
 
 <!-- The end. -->
-
-
