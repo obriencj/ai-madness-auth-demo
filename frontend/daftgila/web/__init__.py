@@ -206,8 +206,8 @@ def dashboard():
 def admin():
     try:
         headers = {'Authorization': f'Bearer {session["access_token"]}'}
-        print(f"Admin route: Making request to {BACKEND_URL}/api/v1/users")
-        response = requests.get(f'{BACKEND_URL}/api/v1/users', headers=headers)
+        print(f"Admin route: Making request to {BACKEND_URL}/api/v1/admin/users")
+        response = requests.get(f'{BACKEND_URL}/api/v1/admin/users', headers=headers)
         print(f"Admin route: Response status: {response.status_code}")
         
         if response.status_code == 200:
@@ -218,7 +218,7 @@ def admin():
             for user in users:
                 try:
                     oauth_response = requests.get(
-                        f'{BACKEND_URL}/api/v1/users/{user["id"]}/oauth-accounts',
+                        f'{BACKEND_URL}/api/v1/admin/users/{user["id"]}/oauth-accounts',
                         headers=headers
                     )
                     if oauth_response.status_code == 200:
@@ -305,7 +305,7 @@ def update_user(user_id):
     try:
         headers = {'Authorization': f'Bearer {session["access_token"]}'}
         response = requests.put(
-            f'{BACKEND_URL}/api/v1/users/{user_id}',
+            f'{BACKEND_URL}/api/v1/admin/users/{user_id}',
             json=data, headers=headers
         )
         
@@ -327,7 +327,7 @@ def admin_remove_user_oauth_account(user_id, oauth_account_id):
     try:
         headers = {'Authorization': f'Bearer {session["access_token"]}'}
         response = requests.delete(
-            f'{BACKEND_URL}/api/v1/users/{user_id}/oauth-accounts/{oauth_account_id}',
+            f'{BACKEND_URL}/api/v1/admin/users/{user_id}/oauth-accounts/{oauth_account_id}',
             headers=headers
         )
         
