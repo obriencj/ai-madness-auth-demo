@@ -18,8 +18,13 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 # Import shared utilities
 from ..utils import BACKEND_URL, extract_api_data
 
+from .oauth import oauth_bp
+from .gssapi import gssapi_bp
+
 # Create core auth blueprint
 auth_bp = Blueprint('auth', __name__)
+auth_bp.register_blueprint(oauth_bp)
+auth_bp.register_blueprint(gssapi_bp)
 
 # Login required decorator
 def login_required(f):
@@ -207,11 +212,5 @@ def register():
     
     return render_template('register.html', config=config)
 
-# Import and export other auth blueprints
-from .oauth import oauth_bp
-from .gssapi import gssapi_bp
-
-# Export all blueprints
-__all__ = ['auth_bp', 'oauth_bp', 'gssapi_bp', 'login_required', 'admin_required']
 
 # The end.

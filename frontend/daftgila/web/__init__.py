@@ -29,8 +29,6 @@ def create_app():
     from .dashboard import dashboard_bp
     
     app.register_blueprint(auth_bp)
-    app.register_blueprint(oauth_bp)
-    app.register_blueprint(gssapi_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(user_bp)
     app.register_blueprint(dashboard_bp)
