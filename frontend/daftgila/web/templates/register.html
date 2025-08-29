@@ -53,7 +53,7 @@
                         <p class="text-center text-muted">Or sign up with:</p>
                         <div class="d-grid gap-2">
                             {% for provider in config.oauth_providers %}
-                            <a href="{{ url_for('oauth_login', provider=provider.name) }}" 
+                            <a href="{{ url_for('auth.oauth_login', provider=provider.name) }}" 
                                class="btn btn-outline-dark"
                                style="border-color: {{ provider.color }}; color: {{ provider.color }};">
                                 <i class="{{ provider.icon }} me-2"></i>
@@ -103,7 +103,7 @@
                     </form>
                 </div>
                 <div class="card-footer text-center">
-                    <p class="mb-0">Already have an account? <a href="{{ url_for('login') }}">Sign in</a></p>
+                    <p class="mb-0">Already have an account? <a href="{{ url_for('auth.login') }}">Sign in</a></p>
                 </div>
             </div>
         </div>
@@ -119,7 +119,7 @@
                 </div>
                 <div class="card-body text-center">
                     <p class="text-muted">User registration is currently disabled by the administrator.</p>
-                    <a href="{{ url_for('login') }}" class="btn btn-primary">Back to Login</a>
+                    <a href="{{ url_for('auth.login') }}" class="btn btn-primary">Back to Login</a>
                 </div>
             </div>
         </div>
