@@ -1,4 +1,4 @@
--- Application Configuration Table Migration
+-- Application Configuration Table Migration with Phase 1.2 optimizations
 -- This script creates the app_config_version table for versioned application configuration
 
 CREATE TABLE IF NOT EXISTS app_config_version (
@@ -20,6 +20,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_app_config_active ON app_config_version(is
 CREATE INDEX IF NOT EXISTS idx_app_config_version ON app_config_version(version);
 CREATE INDEX IF NOT EXISTS idx_app_config_created_at ON app_config_version(created_at);
 CREATE INDEX IF NOT EXISTS idx_app_config_created_by ON app_config_version(created_by);
+CREATE INDEX IF NOT EXISTS idx_app_config_version_created ON app_config_version(version, created_at);
+
+-- Add database constraints for data validation
+ALTER TABLE app_config_version 
+ADD CONSTRAINT version_positive CHECK (version > 0);
 
 -- Insert initial configuration version
 INSERT INTO app_config_version (version, config_data, description, created_by, is_active, activated_at, activated_by) VALUES
@@ -45,7 +50,7 @@ INSERT INTO app_config_version (version, config_data, description, created_by, i
     1
 ) ON CONFLICT DO NOTHING;
 
--- Add comment to table
+-- Add table comment
 COMMENT ON TABLE app_config_version IS 'Stores versioned application configuration with audit trail';
 
 -- The end.

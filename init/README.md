@@ -6,99 +6,63 @@ This directory contains SQL scripts for initializing and migrating the Daft Gila
 
 The scripts must be executed in the following order:
 
-1. **01-init.sql** - Creates the base user table and admin user
-2. **02-oauth-support.sql** - Adds OAuth provider and account tables
-3. **03-jwt-sessions.sql** - Adds JWT session tracking table
-4. **04-app-config.sql** - Adds application configuration versioning
-5. **05-gssapi-support.sql** - Adds GSSAPI/Kerberos authentication support
-6. **06-model-optimization.sql** - Adds new fields, constraints, and indexes
+1. **01-init.sql** - Creates the base user table and admin user with Phase 1.2 optimizations
+2. **02-oauth-support.sql** - Adds OAuth provider and account tables with Phase 1.2 optimizations
+3. **03-jwt-sessions.sql** - Adds JWT session tracking table with Phase 1.2 optimizations
+4. **04-app-config.sql** - Adds application configuration versioning with Phase 1.2 optimizations
+5. **05-gssapi-support.sql** - Adds GSSAPI/Kerberos authentication support with Phase 1.2 optimizations
+6. **06-auditing.sql** - Adds audit logging table for administrative actions
 
-## Phase 1.2 Model Optimizations
+## Phase 1.2 Model Optimizations (Built-in)
 
-### New Fields Added
+All Phase 1.2 optimizations are now integrated directly into the table creation scripts, providing a clean, single-pass database setup.
 
-#### User Table
-- `created_at` - User account creation timestamp
-- `updated_at` - Last update timestamp (auto-updated)
-- `last_login_at` - Last successful login timestamp
-- `login_attempts` - Failed login attempt counter
-- `locked_until` - Account lock expiration timestamp
+### Enhanced User Table (01-init.sql)
+- **New Fields**: `created_at`, `updated_at`, `last_login_at`, `login_attempts`, `locked_until`
+- **Constraints**: Username length validation, login attempts validation
+- **Indexes**: Performance indexes for common query patterns
+- **Features**: Account locking, login attempt tracking, timestamp tracking
 
-#### OAuth Provider Table
-- `updated_at` - Last update timestamp (auto-updated)
-- `is_deleted` - Soft delete flag
-- `deleted_at` - Soft delete timestamp
-- `deleted_by` - User who performed soft delete
+### Enhanced OAuth Tables (02-oauth-support.sql)
+- **New Fields**: `updated_at`, `is_deleted`, `deleted_at`, `deleted_by`, `last_used_at`
+- **Constraints**: Provider name validation, client ID validation, scope validation
+- **Indexes**: Soft delete indexes, usage tracking indexes
+- **Features**: Soft delete support, usage monitoring, audit trail
 
-#### OAuth Account Table
-- `last_used_at` - Last OAuth token usage timestamp
+### Enhanced JWT Sessions Table (03-jwt-sessions.sql)
+- **New Fields**: `last_activity_at`
+- **Constraints**: JTI length validation, timestamp validation
+- **Indexes**: Activity monitoring indexes, composite query indexes
+- **Features**: Activity tracking, performance optimization
 
-#### JWT Session Table
-- `last_activity_at` - Last session activity timestamp
+### Enhanced App Config Table (04-app-config.sql)
+- **Constraints**: Version number validation
+- **Indexes**: Version and creation date indexes
+- **Features**: Enhanced query performance, data integrity
 
-#### GSSAPI Realm Table
-- `is_deleted` - Soft delete flag
-- `deleted_at` - Soft delete timestamp
-- `deleted_by` - User who performed soft delete
+### Enhanced GSSAPI Tables (05-gssapi-support.sql)
+- **New Fields**: `is_deleted`, `deleted_at`, `deleted_by`, `last_used_at`
+- **Constraints**: Realm name validation, domain validation, KDC hosts validation
+- **Indexes**: Soft delete indexes, usage tracking indexes
+- **Features**: Soft delete support, usage monitoring
 
-#### GSSAPI Account Table
-- `last_used_at` - Last GSSAPI authentication timestamp
-
-#### New Audit Log Table
-- `user_id` - User performing the action
-- `action` - Description of the action
-- `resource_type` - Type of resource being acted upon
-- `resource_id` - ID of the specific resource
-- `details` - JSON details about the action
-- `ip_address` - Client IP address
-- `user_agent` - Client user agent
-- `created_at` - Action timestamp
-
-### New Constraints Added
-
-#### Data Validation
-- Username length: 3-80 characters
-- Provider name length: 2-50 characters
-- Realm name length: 2-100 characters
-- Realm domain length: minimum 3 characters
-- JTI length: minimum 32 characters
-- Login attempts: non-negative
-- Version numbers: positive only
-
-#### Business Logic
-- Session expiration must be after creation
-- Last activity must be after creation
-- KDC hosts array must not be empty
-
-### New Indexes Added
-
-#### Performance Indexes
-- Composite indexes for common query patterns
-- Indexes on frequently filtered fields
-- Indexes on timestamp fields for range queries
-- Unique partial index for active app configuration
-
-#### Soft Delete Indexes
-- Indexes on `is_deleted` flags for efficient filtering
-- Composite indexes combining active status with other fields
+### New Audit Log Table (06-auditing.sql)
+- **Purpose**: Complete audit trail for administrative actions
+- **Fields**: User tracking, action logging, resource monitoring, IP tracking
+- **Indexes**: Performance indexes for audit queries
+- **Features**: Security compliance, administrative oversight
 
 ## Usage
 
 ### Fresh Installation
 ```bash
-# Run all scripts in order
+# Run all scripts in order for complete optimized schema
 psql -d auth_demo -f 01-init.sql
 psql -d auth_demo -f 02-oauth-support.sql
 psql -d auth_demo -f 03-jwt-sessions.sql
 psql -d auth_demo -f 04-app-config.sql
 psql -d auth_demo -f 05-gssapi-support.sql
-psql -d auth_demo -f 06-model-optimization.sql
-```
-
-### Upgrading Existing Database
-```bash
-# Run only the new optimization script
-psql -d auth_demo -f 06-model-optimization.sql
+psql -d auth_demo -f 06-auditing.sql
 ```
 
 ### Verification
@@ -135,38 +99,30 @@ psql -d auth_demo -c "SELECT conname, contype, pg_get_constraintdef(oid) FROM pg
 ### Maintainability
 - **Standardized Timestamps**: Consistent created/updated tracking
 - **Usage Tracking**: Monitor authentication method usage patterns
-- **Migration Safety**: Non-destructive schema updates
+- **Clean Setup**: Single-pass database initialization
 
-## Rollback Plan
+## Development Workflow
 
-If issues arise during migration, the following rollback script can be used:
+Since this is a development environment, the database can be completely recreated at any time:
 
-```sql
--- Remove new constraints (if needed)
-ALTER TABLE "user" DROP CONSTRAINT IF EXISTS username_min_length;
-ALTER TABLE "user" DROP CONSTRAINT IF EXISTS username_max_length;
--- ... (repeat for other constraints)
+```bash
+# Drop and recreate database
+dropdb auth_demo
+createdb auth_demo
 
--- Remove new indexes (if needed)
-DROP INDEX IF EXISTS idx_user_active_admin;
-DROP INDEX IF EXISTS idx_user_created_at;
--- ... (repeat for other indexes)
-
--- Note: New fields can remain as they don't break existing functionality
+# Run initialization scripts for fresh optimized schema
+psql -d auth_demo -f 01-init.sql
+psql -d auth_demo -f 02-oauth-support.sql
+psql -d auth_demo -f 03-jwt-sessions.sql
+psql -d auth_demo -f 04-app-config.sql
+psql -d auth_demo -f 05-gssapi-support.sql
+psql -d auth_demo -f 06-auditing.sql
 ```
 
-## Troubleshooting
-
-### Common Issues
-
-1. **Constraint Violations**: Ensure existing data meets new constraints before migration
-2. **Index Creation Failures**: Check available disk space and PostgreSQL configuration
-3. **Permission Errors**: Ensure database user has ALTER TABLE and CREATE INDEX privileges
-
-### Performance Considerations
-
-- Run migrations during low-traffic periods
-- Monitor database performance during migration
-- Consider running ANALYZE after migration to update statistics
+This approach ensures:
+- **Always Current Schema**: No migration complexity
+- **Clean State**: Fresh database every time
+- **Fast Development**: Immediate access to latest optimizations
+- **No Data Loss Concerns**: Development data can be easily recreated
 
 ## The end.
