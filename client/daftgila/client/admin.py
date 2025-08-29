@@ -346,6 +346,44 @@ class AdminClient:
             raise ValidationError("Valid realm ID is required", "realm_id", realm_id)
         
         return self.http.delete(f'/api/v1/admin/gssapi-realms/{realm_id}')
+    
+    # JWT Session Management Methods
+    
+    def get_jwt_sessions(self) -> APIResponse:
+        """
+        Get all active JWT sessions in the system (admin only).
+        
+        Returns:
+            APIResponse with list of active JWT sessions
+        """
+        return self.http.get('/api/v1/admin/sessions')
+    
+    def expire_jwt_session(self, session_id: int) -> APIResponse:
+        """
+        Expire a specific JWT session (admin only).
+        
+        Args:
+            session_id: ID of the JWT session to expire
+            
+        Returns:
+            APIResponse with expiration result
+            
+        Raises:
+            ValidationError: If session_id is invalid
+        """
+        if not session_id or session_id <= 0:
+            raise ValidationError("Valid session ID is required", "session_id", session_id)
+        
+        return self.http.post(f'/api/v1/admin/sessions/{session_id}/expire')
+    
+    def expire_all_jwt_sessions(self) -> APIResponse:
+        """
+        Expire all active JWT sessions in the system (admin only).
+        
+        Returns:
+            APIResponse with expiration result
+        """
+        return self.http.post('/api/v1/admin/sessions/expire-all')
 
 
 # The end.

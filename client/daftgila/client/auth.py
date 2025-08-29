@@ -94,6 +94,15 @@ class AuthClient:
         
         return response
     
+    def is_authenticated(self) -> bool:
+        """
+        Check if the client is currently authenticated.
+        
+        Returns:
+            True if authenticated, False otherwise
+        """
+        return 'Authorization' in self.http.default_headers
+    
     def register(self, username: str, email: str, password: str) -> APIResponse:
         """
         Register a new user account.
@@ -251,6 +260,58 @@ class AuthClient:
             raise ValidationError("Valid OAuth account ID is required", "oauth_account_id", oauth_account_id)
         
         return self.http.delete(f'/api/v1/auth/account/oauth/{oauth_account_id}')
+    
+    # JWT Session Management Methods (User-specific)
+    
+    def get_user_sessions(self) -> APIResponse:
+        """
+        Get all active JWT sessions for the current user.
+        
+        Returns:
+            APIResponse with list of user's active JWT sessions
+            
+        Raises:
+            ValidationError: If no active session exists
+        """
+        if not self.is_authenticated():
+            raise ValidationError("No active session to get sessions")
+        
+        return self.http.get('/api/v1/auth/sessions')
+    
+    def expire_user_session(self, session_id: int) -> APIResponse:
+        """
+        Expire a specific JWT session for the current user.
+        
+        Args:
+            session_id: ID of the JWT session to expire
+            
+        Returns:
+            APIResponse with expiration result
+            
+        Raises:
+            ValidationError: If session_id is invalid or no active session exists
+        """
+        if not self.is_authenticated():
+            raise ValidationError("No active session to expire sessions")
+        if not session_id or session_id <= 0:
+            raise ValidationError("Valid session ID is required", "session_id", session_id)
+        
+        return self.http.delete(f'/api/v1/auth/sessions/{session_id}')
+    
+    def expire_all_user_sessions(self) -> APIResponse:
+        """
+        Expire all active JWT sessions for the current user.
+        
+        Returns:
+            APIResponse with expiration result
+            
+        Raises:
+            ValidationError: If no active session exists
+        """
+        if not self.is_authenticated():
+            raise ValidationError("No active session to expire sessions")
+        
+        return self.http.post('/api/v1/auth/sessions/expire-all')
 
 
 # The end.
