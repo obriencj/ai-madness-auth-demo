@@ -11,7 +11,7 @@ License: GNU General Public License v3.0
 """
 
 import os
-from datetime import timedelta
+from datetime import datetime, timedelta
 from flask import request, Blueprint
 from flask_jwt_extended import (
     JWTManager, create_access_token, jwt_required, get_jwt_identity,
@@ -61,13 +61,17 @@ def create_jwt_session(jti, user_id, auth_method):
         ip_address = _get_client_ip()
         user_agent = request.headers.get('User-Agent', 'Unknown')
         
+        # Calculate expiration time (1 hour from now, matching JWT token expiration)
+        expires_at = datetime.utcnow() + timedelta(hours=1)
+        
         # Create session record
         session = JWTSession(
             jti=jti,
             user_id=user_id,
             auth_method=auth_method,
             ip_address=ip_address,
-            user_agent=user_agent
+            user_agent=user_agent,
+            expires_at=expires_at
         )
         
         db.session.add(session)
