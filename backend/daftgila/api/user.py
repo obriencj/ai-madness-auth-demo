@@ -8,7 +8,7 @@ Assisted-By: Claude Sonnet 4 (AI Assistant)
 License: GNU General Public License v3.0
 """
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request
 from flask_jwt_extended import jwt_required, get_jwt_identity, create_access_token, decode_token
 from .model import db, User
 from .jwt import expire_jwt_session, create_jwt_session

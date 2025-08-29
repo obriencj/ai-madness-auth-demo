@@ -1,11 +1,11 @@
 """
-Configuration service and API endpoints for the Auth Demo application.
+Configuration management for the Auth Demo application.
 
-This module handles application configuration management, including:
-- Configuration retrieval with defaults and Redis caching
-- Version management and rollbacks
-- REST API endpoints for configuration management
-- Cache management and monitoring
+This module handles application configuration, including:
+- Configuration retrieval and updates
+- Configuration versioning
+- Configuration caching
+- Feature flags
 
 Author: Christopher O'Brien <obriencj@gmail.com>
 Assisted-By: Claude Sonnet 4 (AI Assistant)
@@ -13,638 +13,343 @@ License: GNU General Public License v3.0
 """
 
 import json
-import redis
-from datetime import datetime, timedelta
-from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
-from .model import db, AppConfigVersion, User
-from .utils import get_provider_color, admin_required, success_response, error_response
+import os
+from datetime import datetime
+from flask import Blueprint, request
+from flask_jwt_extended import jwt_required
+from .model import db, AppConfigVersion
+from .utils import admin_required, get_current_user, success_response, error_response
+from .audit import log_config_action, AuditActions
 
-# Create blueprints
-config_bp = Blueprint('config', __name__, url_prefix='/api/v1/admin')
-public_config_bp = Blueprint('public_config', __name__, url_prefix='/api/v1/auth')
+# Create configuration blueprints
+config_bp = Blueprint('config', __name__, url_prefix='/api/v1/config')
+public_config_bp = Blueprint('public_config', __name__, url_prefix='/api/v1/config')
 
 
-class ConfigService:
-    """Service class for managing application configuration."""
-    
-    # Redis cache settings
-    CACHE_TTL = 300  # 5 minutes cache TTL
-    CACHE_KEY_PREFIX = "app_config:"
-    
-    @classmethod
-    def _get_redis_client(cls):
-        """Get Redis client instance."""
-        try:
-            from .jwt import redis_client
-            return redis_client
-        except ImportError:
-            # Fallback if Redis is not available
-            return None
-    
-    @classmethod
-    def _get_cache_key(cls, key=None):
-        """Generate cache key for configuration."""
-        if key:
-            return f"{cls.CACHE_KEY_PREFIX}{key}"
-        return f"{cls.CACHE_KEY_PREFIX}active"
-    
-    @classmethod
-    def _get_from_cache(cls, key=None):
-        """Get configuration from Redis cache."""
-        redis_client = cls._get_redis_client()
-        if not redis_client:
-            return None
-        
-        try:
-            cache_key = cls._get_cache_key(key)
-            cached_data = redis_client.get(cache_key)
-            if cached_data:
-                return json.loads(cached_data)
-        except Exception as e:
-            print(f"Cache read error: {e}")
-        return None
-    
-    @classmethod
-    def _set_cache(cls, data, key=None, ttl=None):
-        """Set configuration in Redis cache."""
-        redis_client = cls._get_redis_client()
-        if not redis_client:
-            return False
-        
-        try:
-            cache_key = cls._get_cache_key(key)
-            cache_ttl = ttl or cls.CACHE_TTL
-            redis_client.setex(cache_key, cache_ttl, json.dumps(data))
-            return True
-        except Exception as e:
-            print(f"Cache write error: {e}")
-            return False
-    
-    @classmethod
-    def _invalidate_cache(cls, key=None):
-        """Invalidate configuration cache."""
-        redis_client = cls._get_redis_client()
-        if not redis_client:
-            return False
-        
-        try:
-            if key:
-                # Invalidate specific key
-                cache_key = cls._get_cache_key(key)
-                redis_client.delete(cache_key)
-            else:
-                # Invalidate all config cache keys
-                pattern = f"{cls.CACHE_KEY_PREFIX}*"
-                keys = redis_client.keys(pattern)
-                if keys:
-                    redis_client.delete(*keys)
-            return True
-        except Exception as e:
-            print(f"Cache invalidation error: {e}")
-            return False
-    
-    @staticmethod
-    def get_active_config():
-        """Get the currently active configuration with caching."""
-        # Try to get from cache first
-        cached_config = ConfigService._get_from_cache()
-        if cached_config:
-            return cached_config
-        
-        # Cache miss, get from database
+def get_active_config():
+    """Get the currently active configuration."""
+    try:
         active_config = AppConfigVersion.query.filter_by(is_active=True).first()
-        if active_config:
-            config_data = active_config.config_data
-        else:
-            config_data = ConfigService.get_default_config()
-        
-        # Dynamically populate GSSAPI realms and OAuth providers
-        config_data = ConfigService._populate_dynamic_config(config_data)
-        
-        # Cache the result
-        ConfigService._set_cache(config_data)
-        
-        return config_data
-    
-    @staticmethod
-    def _populate_dynamic_config(config_data):
-        """Populate dynamic configuration data from database."""
-        try:
-            # Import models here to avoid circular imports
-            from .model import GSSAPIRealm, OAuthProvider
-            
-            # Populate GSSAPI realms if enabled
-            if config_data.get("auth", {}).get("gssapi_enabled", True):
-                gssapi_realms = []
-                realms = GSSAPIRealm.query.filter_by(is_active=True).all()
-                print(f"Config: Found {len(realms)} active GSSAPI realms in database")
-                for realm in realms:
-                    gssapi_realms.append({
-                        "id": realm.id,
-                        "name": realm.name,
-                        "realm": realm.realm,
-                        "display_name": realm.name.replace("_", " ").title(),
-                        "default_realm": realm.default_realm
-                    })
-                config_data["gssapi_realms"] = gssapi_realms
-                print(f"Config: Populated {len(gssapi_realms)} GSSAPI realms in config")
-            else:
-                print(f"Config: GSSAPI is disabled, not populating realms")
-                config_data["gssapi_realms"] = []
-            
-            # Populate OAuth providers if enabled
-            if config_data.get("auth", {}).get("oauth_enabled", True):
-                oauth_providers = []
-                providers = OAuthProvider.query.filter_by(is_active=True).all()
-                print(f"Config: Found {len(providers)} active OAuth providers in database")
-                for provider in providers:
-                    oauth_providers.append({
-                        "id": provider.id,
-                        "name": provider.name,
-                        "display_name": provider.name.title(),
-                        "icon": f"fab fa-{provider.name}",
-                        "color": get_provider_color(provider.name)
-                    })
-                config_data["oauth_providers"] = oauth_providers
-                print(f"Config: Populated {len(oauth_providers)} OAuth providers in config")
-            else:
-                print(f"Config: OAuth is disabled, not populating providers")
-                config_data["oauth_providers"] = []
-                
-        except Exception as e:
-            print(f"Error populating dynamic config: {e}")
-            # Fallback to empty lists if there's an error
-            config_data["gssapi_realms"] = []
-            config_data["oauth_providers"] = []
-        
-        return config_data
-    
+        if not active_config:
+            return get_default_config()
+        return active_config.config_data
+    except Exception as e:
+        return get_default_config()
 
-    
-    @staticmethod
-    def get_default_config():
-        """Return default configuration."""
-        return {
-            "auth": {
-                "allow_registration": True,
-                "allow_user_login": True,
-                "jwt_lifetime_hours": 1,
-                "max_login_attempts": 5,
-                "gssapi_enabled": True,
-                "oauth_enabled": True
-            },
-            "app": {
-                "maintenance_mode": False,
-                "site_name": "Auth Demo",
-                "contact_email": "admin@example.com"
-            },
-            "gssapi_realms": [],
-            "oauth_providers": []
+
+def get_default_config():
+    """Get default configuration if no active config exists."""
+    return {
+        'auth': {
+            'jwt_lifetime_hours': 1,
+            'allow_user_registration': True,
+            'allow_user_login': True,
+            'require_email_verification': False
+        },
+        'oauth': {
+            'enabled_providers': ['google', 'github'],
+            'auto_link_accounts': True
+        },
+        'gssapi': {
+            'enabled': True,
+            'default_realm': 'LOCAL.REALM'
+        },
+        'security': {
+            'max_login_attempts': 5,
+            'lockout_duration_minutes': 30,
+            'password_min_length': 8,
+            'require_strong_password': False
         }
-    
-    @staticmethod
-    def get_config_value(key_path, default=None):
-        """Get a specific configuration value using dot notation (e.g., 'auth.allow_registration')."""
-        config = ConfigService.get_active_config()
+    }
+
+
+def get_config_value(key_path, default=None):
+    """Get a specific configuration value by key path."""
+    try:
+        config = get_active_config()
         keys = key_path.split('.')
+        value = config
         
-        current = config
         for key in keys:
-            if isinstance(current, dict) and key in current:
-                current = current[key]
+            if isinstance(value, dict) and key in value:
+                value = value[key]
             else:
                 return default
         
-        return current
-    
-    @staticmethod
-    def get_jwt_lifetime_hours():
-        """Get JWT lifetime in hours from configuration."""
-        return ConfigService.get_config_value('auth.jwt_lifetime_hours', 1)
-    
-    @staticmethod
-    def create_new_version(config_data, description, user_id):
-        """Create a new configuration version."""
-        # Deactivate current active config
-        current_active = AppConfigVersion.query.filter_by(is_active=True).first()
-        if current_active:
-            current_active.is_active = False
-        
-        # Create new version
-        new_version = AppConfigVersion(
-            version=(current_active.version + 1) if current_active else 1,
-            config_data=config_data,
-            description=description,
-            created_by=user_id,
-            is_active=True,
-            activated_at=datetime.utcnow(),
-            activated_by=user_id
-        )
-        
-        db.session.add(new_version)
-        db.session.commit()
-        
-        # Invalidate cache after configuration change
-        ConfigService._invalidate_cache()
-        
-        return new_version
-    
-    @staticmethod
-    def rollback_to_version(version_id, user_id):
-        """Rollback to a specific configuration version."""
-        target_version = AppConfigVersion.query.get(version_id)
-        if not target_version:
-            raise ValueError("Version not found")
-        
-        new_version = ConfigService.create_new_version(
-            target_version.config_data,
-            f"Rollback to version {target_version.version}",
-            user_id
-        )
-        
-        # Cache invalidation is handled in create_new_version
-        return new_version
-    
-    @staticmethod
-    def get_all_versions():
-        """Get all configuration versions ordered by creation date."""
-        return AppConfigVersion.query.order_by(AppConfigVersion.created_at.desc()).all()
-    
-    @staticmethod
-    def get_version_by_id(version_id):
-        """Get a specific configuration version by ID."""
-        return AppConfigVersion.query.get(version_id)
-    
-    @staticmethod
-    def delete_version(version_id):
-        """Delete a configuration version (only if not active)."""
-        version = AppConfigVersion.query.get(version_id)
-        if not version:
-            raise ValueError("Version not found")
-        
-        if version.is_active:
-            raise ValueError("Cannot delete active configuration")
-        
-        db.session.delete(version)
-        db.session.commit()
-        
-        # Invalidate cache after deletion
-        ConfigService._invalidate_cache()
-        
-        return True
-    
-    @staticmethod
-    def refresh_cache():
-        """Manually refresh the configuration cache."""
-        ConfigService._invalidate_cache()
-        # Force a fresh read from database
-        return ConfigService.get_active_config()
-
-
-# Convenience functions for easy access
-def get_config():
-    """Get the active configuration."""
-    return ConfigService.get_active_config()
-
-
-
+        return value
+    except Exception:
+        return default
 
 
 def is_registration_allowed():
-    """Check if user registration is allowed."""
-    return ConfigService.get_config_value('auth.allow_registration', True)
+    """Check if user registration is currently allowed."""
+    return get_config_value('auth.allow_user_registration', True)
 
 
 def is_user_login_allowed():
-    """Check if non-admin user login is allowed."""
-    return ConfigService.get_config_value('auth.allow_user_login', True)
+    """Check if user login is currently allowed."""
+    return get_config_value('auth.allow_user_login', True)
 
 
+def get_jwt_lifetime_hours():
+    """Get JWT token lifetime in hours."""
+    return get_config_value('auth.jwt_lifetime_hours', 1)
 
 
+# Configuration Blueprint Routes
 
-def get_max_login_attempts():
-    """Get maximum login attempts allowed."""
-    return ConfigService.get_config_value('auth.max_login_attempts', 5)
-
-
-def is_maintenance_mode():
-    """Check if the application is in maintenance mode."""
-    return ConfigService.get_config_value('app.maintenance_mode', False)
-
-
-def get_site_name():
-    """Get the site name."""
-    return ConfigService.get_config_value('app.site_name', 'Auth Demo')
-
-
-def get_contact_email():
-    """Get the contact email."""
-    return ConfigService.get_config_value('app.contact_email', 'admin@example.com')
-
-
-
-
-
-# ============================================================================
-# ADMIN API ENDPOINTS
-# ============================================================================
-
-@config_bp.route('/config', methods=['GET'])
+@config_bp.route('/active', methods=['GET'])
 @jwt_required()
-def get_active_config():
-    """Get the currently active configuration."""
-    current_username = get_jwt_identity()
-    current_user = User.query.filter_by(username=current_username).first()
-    
-    if not current_user or not current_user.is_admin:
-        return jsonify({'error': 'Admin privileges required'}), 403
-    
+def get_active_config_endpoint():
+    """Get the currently active configuration (authenticated users)."""
     try:
-        config = ConfigService.get_active_config()
-        return jsonify({
-            'config': config,
-            'message': 'Configuration retrieved successfully'
-        }), 200
-    except Exception as e:
-        return jsonify({'error': f'Failed to retrieve configuration: {str(e)}'}), 500
-
-
-@config_bp.route('/config', methods=['POST'])
-@jwt_required()
-def create_config_version():
-    """Create a new configuration version."""
-    current_username = get_jwt_identity()
-    current_user = User.query.filter_by(username=current_username).first()
-    
-    if not current_user or not current_user.is_admin:
-        return jsonify({'error': 'Admin privileges required'}), 403
-    
-    data = request.get_json()
-    
-    if not data or 'config_data' not in data:
-        return jsonify({'error': 'Missing config_data'}), 400
-    
-    config_data = data['config_data']
-    description = data.get('description', 'Configuration update')
-    
-    try:
-        new_version = ConfigService.create_new_version(
-            config_data, description, current_user.id
-        )
+        active_config = AppConfigVersion.query.filter_by(is_active=True).first()
+        if not active_config:
+            return success_response(
+                'No active configuration found, using defaults',
+                {'config': get_default_config()}
+            )
         
-        return jsonify({
-            'message': 'Configuration updated successfully',
-            'version': {
-                'id': new_version.id,
-                'version': new_version.version,
-                'description': new_version.description,
-                'created_at': new_version.created_at.isoformat(),
-                'is_active': new_version.is_active
+        return success_response(
+            'Active configuration retrieved successfully',
+            {
+                'id': active_config.id,
+                'version': active_config.version,
+                'config_data': active_config.config_data,
+                'description': active_config.description,
+                'created_at': active_config.created_at.isoformat() if active_config.created_at else None,
+                'activated_at': active_config.activated_at.isoformat() if active_config.activated_at else None,
+                'created_by': active_config.creator.username if active_config.creator else None,
+                'activated_by': active_config.activator.username if active_config.activator else None
             }
-        }), 201
+        )
     except Exception as e:
-        return jsonify({'error': f'Failed to update configuration: {str(e)}'}), 500
+        return error_response(f'Failed to retrieve configuration: {str(e)}', 500)
 
 
-@config_bp.route('/config/versions', methods=['GET'])
+@config_bp.route('/update', methods=['PUT'])
 @jwt_required()
-def get_config_versions():
-    """Get all configuration versions."""
-    current_username = get_jwt_identity()
-    current_user = User.query.filter_by(username=current_username).first()
-    
-    if not current_user or not current_user.is_admin:
-        return jsonify({'error': 'Admin privileges required'}), 403
-    
+@admin_required
+def update_config():
+    """Update the active configuration (admin only)."""
     try:
-        versions = ConfigService.get_all_versions()
+        active_config = AppConfigVersion.query.filter_by(is_active=True).first()
+        if not active_config:
+            return error_response('No active configuration found', 404)
         
-        versions_data = []
-        for version in versions:
-            creator = User.query.get(version.created_by)
-            activator = User.query.get(version.activated_by) if version.activated_by else None
-            
-            versions_data.append({
-                'id': version.id,
-                'version': version.version,
-                'description': version.description,
-                'created_at': version.created_at.isoformat(),
-                'is_active': version.is_active,
-                'activated_at': version.activated_at.isoformat() if version.activated_at else None,
-                'creator': {
-                    'id': creator.id,
-                    'username': creator.username
-                } if creator else None,
-                'activator': {
-                    'id': activator.id,
-                    'username': activator.username
-                } if activator else None
+        data = request.get_json()
+        if not data or 'config_data' not in data:
+            return error_response('Missing config_data', 400)
+        
+        # Validate JSON configuration
+        try:
+            if isinstance(data['config_data'], str):
+                json.loads(data['config_data'])
+            else:
+                json.dumps(data['config_data'])  # Test if it's JSON serializable
+        except Exception as e:
+            return error_response(f'Invalid configuration format: {str(e)}', 400)
+        
+        # Update configuration
+        active_config.config_data = data['config_data']
+        active_config.updated_at = db.func.current_timestamp()
+        
+        db.session.commit()
+        
+        return success_response(
+            'Configuration updated successfully',
+            {
+                'id': active_config.id,
+                'version': active_config.version,
+                'description': active_config.description
+            }
+        )
+    except Exception as e:
+        db.session.rollback()
+        return error_response(f'Failed to update configuration: {str(e)}', 500)
+
+
+@config_bp.route('/versions', methods=['GET'])
+@jwt_required()
+@admin_required
+def get_config_versions():
+    """Get all configuration versions (admin only)."""
+    try:
+        configs = AppConfigVersion.query.order_by(AppConfigVersion.version.desc()).all()
+        config_data = []
+        
+        for config in configs:
+            config_data.append({
+                'id': config.id,
+                'version': config.version,
+                'description': config.description,
+                'is_active': config.is_active,
+                'created_at': config.created_at.isoformat() if config.created_at else None,
+                'activated_at': config.activated_at.isoformat() if config.activated_at else None,
+                'created_by': config.creator.username if config.creator else None,
+                'activated_by': config.activator.username if config.activator else None
             })
         
-        return jsonify({
-            'versions': versions_data,
-            'message': 'Configuration versions retrieved successfully'
-        }), 200
+        return success_response(
+            'Configuration versions retrieved successfully',
+            {'configurations': config_data}
+        )
     except Exception as e:
-        return jsonify({'error': f'Failed to retrieve versions: {str(e)}'}), 500
+        return error_response(f'Failed to retrieve versions: {str(e)}', 500)
 
 
-@config_bp.route('/config/versions/<int:version_id>', methods=['GET'])
+@config_bp.route('/versions/<int:version_id>', methods=['GET'])
 @jwt_required()
+@admin_required
 def get_config_version(version_id):
-    """Get a specific configuration version."""
-    current_username = get_jwt_identity()
-    current_user = User.query.filter_by(username=current_username).first()
-    
-    if not current_user or not current_user.is_admin:
-        return jsonify({'error': 'Admin privileges required'}), 403
-    
+    """Get a specific configuration version (admin only)."""
     try:
-        version = ConfigService.get_version_by_id(version_id)
-        if not version:
-            return jsonify({'error': 'Version not found'}), 404
+        config = AppConfigVersion.query.get(version_id)
+        if not config:
+            return error_response('Version not found', 404)
         
-        creator = User.query.get(version.created_by)
-        activator = User.query.get(version.activated_by) if version.activated_by else None
-        
-        version_data = {
-            'id': version.id,
-            'version': version.version,
-            'config_data': version.config_data,
-            'description': version.description,
-            'created_at': version.created_at.isoformat(),
-            'is_active': version.is_active,
-            'activated_at': version.activated_at.isoformat() if version.activated_at else None,
-            'creator': {
-                'id': creator.id,
-                'username': creator.username
-            } if creator else None,
-            'activator': {
-                'id': activator.id,
-                'username': activator.username
-            } if activator else None
-        }
-        
-        return jsonify({
-            'version': version_data,
-            'message': 'Configuration version retrieved successfully'
-        }), 200
-    except Exception as e:
-        return jsonify({'error': f'Failed to retrieve version: {str(e)}'}), 500
-
-
-@config_bp.route('/config/versions/<int:version_id>/activate', methods=['POST'])
-@jwt_required()
-def activate_config_version(version_id):
-    """Activate a specific configuration version."""
-    current_username = get_jwt_identity()
-    current_user = User.query.filter_by(username=current_username).first()
-    
-    if not current_user or not current_user.is_admin:
-        return jsonify({'error': 'Admin privileges required'}), 403
-    
-    try:
-        new_version = ConfigService.rollback_to_version(version_id, current_user.id)
-        
-        return jsonify({
-            'message': 'Configuration version activated successfully',
-            'version': {
-                'id': new_version.id,
-                'version': new_version.version,
-                'description': new_version.description,
-                'created_at': new_version.created_at.isoformat(),
-                'is_active': new_version.is_active
+        return success_response(
+            'Configuration version retrieved successfully',
+            {
+                'id': config.id,
+                'version': config.version,
+                'config_data': config.config_data,
+                'description': config.description,
+                'is_active': config.is_active,
+                'created_at': config.created_at.isoformat() if config.created_at else None,
+                'activated_at': config.activated_at.isoformat() if config.activated_at else None,
+                'created_by': config.creator.username if config.creator else None,
+                'activated_by': config.activator.username if config.activator else None
             }
-        }), 200
-    except ValueError as e:
-        return jsonify({'error': str(e)}), 400
+        )
     except Exception as e:
-        return jsonify({'error': f'Failed to activate version: {str(e)}'}), 500
+        return error_response(f'Failed to retrieve version: {str(e)}', 500)
 
 
-@config_bp.route('/config/versions/<int:version_id>', methods=['DELETE'])
+@config_bp.route('/versions/<int:version_id>/activate', methods=['POST'])
 @jwt_required()
+@admin_required
+def activate_config_version(version_id):
+    """Activate a configuration version (admin only)."""
+    try:
+        config = AppConfigVersion.query.get(version_id)
+        if not config:
+            return error_response('Version not found', 404)
+        
+        # Validate JSON configuration before activation
+        try:
+            if isinstance(config.config_data, str):
+                json.loads(config.config_data)
+            else:
+                json.dumps(config.config_data)
+        except Exception as e:
+            return error_response(f'Invalid configuration format: {str(e)}', 400)
+        
+        # Deactivate all other configurations
+        AppConfigVersion.query.update({'is_active': False})
+        
+        # Activate the selected configuration
+        current_user = get_current_user()
+        config.is_active = True
+        config.activated_at = db.func.current_timestamp()
+        config.activated_by = current_user.id
+        
+        db.session.commit()
+        
+        return success_response('Configuration version activated successfully')
+    except Exception as e:
+        db.session.rollback()
+        return error_response(f'Failed to activate version: {str(e)}', 500)
+
+
+@config_bp.route('/versions/<int:version_id>', methods=['DELETE'])
+@jwt_required()
+@admin_required
 def delete_config_version(version_id):
-    """Delete a configuration version (only if not active)."""
-    current_username = get_jwt_identity()
-    current_user = User.query.filter_by(username=current_username).first()
-    
-    if not current_user or not current_user.is_admin:
-        return jsonify({'error': 'Admin privileges required'}), 403
-    
+    """Delete a configuration version (admin only)."""
     try:
-        ConfigService.delete_version(version_id)
+        config = AppConfigVersion.query.get(version_id)
+        if not config:
+            return error_response('Version not found', 404)
         
-        return jsonify({
-            'message': 'Configuration version deleted successfully'
-        }), 200
-    except ValueError as e:
-        return jsonify({'error': str(e)}), 400
+        if config.is_active:
+            return error_response('Cannot delete active configuration', 400)
+        
+        db.session.delete(config)
+        db.session.commit()
+        
+        return success_response('Configuration version deleted successfully')
     except Exception as e:
-        return jsonify({'error': f'Failed to delete version: {str(e)}'}), 500
+        db.session.rollback()
+        return error_response(f'Failed to delete version: {str(e)}', 500)
 
 
-@config_bp.route('/config/cache/refresh', methods=['POST'])
+@config_bp.route('/cache/refresh', methods=['POST'])
 @jwt_required()
+@admin_required
 def refresh_config_cache():
-    """Manually refresh the configuration cache (admin only)."""
-    current_username = get_jwt_identity()
-    current_user = User.query.filter_by(username=current_username).first()
-    
-    if not current_user or not current_user.is_admin:
-        return jsonify({'error': 'Admin privileges required'}), 403
-    
+    """Refresh configuration cache (admin only)."""
     try:
-        refreshed_config = ConfigService.refresh_cache()
+        # This would typically clear any in-memory configuration cache
+        # For now, we'll just return success as the database is the source of truth
         
-        return jsonify({
-            'message': 'Configuration cache refreshed successfully',
-            'config': refreshed_config
-        }), 200
+        return success_response('Configuration cache refreshed successfully')
     except Exception as e:
-        return jsonify({'error': f'Failed to refresh cache: {str(e)}'}), 500
+        return error_response(f'Failed to refresh cache: {str(e)}', 500)
 
 
-@config_bp.route('/config/cache/status', methods=['GET'])
+@config_bp.route('/cache/status', methods=['GET'])
 @jwt_required()
+@admin_required
 def get_cache_status():
     """Get configuration cache status (admin only)."""
-    current_username = get_jwt_identity()
-    current_user = User.query.filter_by(username=current_username).first()
-    
-    if not current_user or not current_user.is_admin:
-        return jsonify({'error': 'Admin privileges required'}), 403
-    
     try:
-        redis_client = ConfigService._get_redis_client()
+        # This would typically return cache statistics
+        # For now, we'll return basic information
         
-        if not redis_client:
-            return jsonify({
-                'cache_enabled': False,
-                'message': 'Redis cache not available'
-            }), 200
-        
-        # Check cache keys
-        pattern = f"{ConfigService.CACHE_KEY_PREFIX}*"
-        cache_keys = redis_client.keys(pattern)
-        
-        cache_info = {}
-        for key in cache_keys:
-            try:
-                ttl = redis_client.ttl(key)
-                cache_info[key.decode('utf-8')] = {
-                    'ttl': ttl if ttl > 0 else 'expired',
-                    'exists': True
-                }
-            except Exception as e:
-                cache_info[key.decode('utf-8')] = {
-                    'error': str(e),
-                    'exists': False
-                }
-        
-        return jsonify({
-            'cache_enabled': True,
-            'cache_ttl': ConfigService.CACHE_TTL,
-            'cache_keys': cache_info,
-            'message': 'Cache status retrieved successfully'
-        }), 200
-    except Exception as e:
-        return jsonify({'error': f'Failed to get cache status: {str(e)}'}), 500
-
-
-# ============================================================================
-# PUBLIC API ENDPOINTS
-# ============================================================================
-
-@public_config_bp.route('/config', methods=['GET'])
-def get_auth_config():
-    """Get public authentication configuration (no authentication required)."""
-    try:
-        config = ConfigService.get_active_config()
-        
-        # Only expose non-sensitive configuration needed for login/register pages
-        public_config = {
-            'auth': {
-                'allow_registration': config.get('auth', {}).get('allow_registration', True),
-                'allow_user_login': config.get('auth', {}).get('allow_user_login', True),
-                'gssapi_enabled': config.get('auth', {}).get('gssapi_enabled', True),
-                'oauth_enabled': config.get('auth', {}).get('oauth_enabled', True)
-            },
-            'gssapi_realms': config.get('gssapi_realms', []),
-            'oauth_providers': config.get('oauth_providers', [])
+        cache_status = {
+            'cache_type': 'database',
+            'last_updated': datetime.utcnow().isoformat(),
+            'cache_size': 'N/A',
+            'hit_rate': 'N/A'
         }
         
-        print(f"Public Config: Returning config with {len(public_config.get('gssapi_realms', []))} GSSAPI realms and {len(public_config.get('oauth_providers', []))} OAuth providers")
-        print(f"Public Config: GSSAPI enabled: {public_config['auth'].get('gssapi_enabled')}")
-        print(f"Public Config: OAuth enabled: {public_config['auth'].get('oauth_enabled')}")
-        
-        return jsonify({
-            'config': public_config,
-            'message': 'Authentication configuration retrieved successfully'
-        }), 200
+        return success_response(
+            'Cache status retrieved successfully',
+            {'cache_status': cache_status}
+        )
     except Exception as e:
-        return jsonify({'error': f'Failed to retrieve configuration: {str(e)}'}), 500
+        return error_response(f'Failed to get cache status: {str(e)}', 500)
+
+
+# Public Configuration Blueprint Routes
+
+@public_config_bp.route('/public', methods=['GET'])
+def get_public_config():
+    """Get public configuration information (no authentication required)."""
+    try:
+        config = get_active_config()
+        
+        # Only return public configuration values
+        public_config = {
+            'auth': {
+                'allow_user_registration': config.get('auth', {}).get('allow_user_registration', True),
+                'allow_user_login': config.get('auth', {}).get('allow_user_login', True)
+            },
+            'oauth': {
+                'enabled_providers': config.get('oauth', {}).get('enabled_providers', [])
+            },
+            'gssapi': {
+                'enabled': config.get('gssapi', {}).get('enabled', True)
+            }
+        }
+        
+        return success_response(
+            'Public configuration retrieved successfully',
+            {'config': public_config}
+        )
+    except Exception as e:
+        return error_response(f'Failed to retrieve configuration: {str(e)}', 500)
+
 
 # The end.

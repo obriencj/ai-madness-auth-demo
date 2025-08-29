@@ -10,7 +10,7 @@ License: GNU General Public License v3.0
 """
 
 from functools import wraps
-from flask import request, jsonify
+from flask import request
 from .model import User
 
 
@@ -77,7 +77,7 @@ def admin_required(f):
         current_user = User.query.filter_by(username=current_username).first()
         
         if not current_user or not current_user.is_admin:
-            return jsonify({'error': 'Admin privileges required'}), 403
+            return error_response('Admin privileges required', 403)
         
         return f(*args, **kwargs)
     return decorated_function
@@ -104,7 +104,7 @@ def admin_required_with_audit(action, resource_type=None):
             current_user = User.query.filter_by(username=current_username).first()
             
             if not current_user or not current_user.is_admin:
-                return jsonify({'error': 'Admin privileges required'}), 403
+                return error_response('Admin privileges required', 403)
             
             # Execute the function
             result = f(*args, **kwargs)

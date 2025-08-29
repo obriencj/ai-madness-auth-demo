@@ -10,7 +10,7 @@ License: GNU General Public License v3.0
 
 import os
 from datetime import timedelta
-from flask import Flask, request, jsonify
+from flask import Flask, request
 from flask_cors import CORS
 
 # Import models and database instances
