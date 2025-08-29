@@ -18,6 +18,7 @@ from flask_jwt_extended import (
     get_jwt_identity, get_jwt
 )
 from .model import db, User, JWTSession
+from .utils import admin_required, success_response, error_response
 
 
 # Initialize JWT manager (will be configured in app.py)
@@ -160,14 +161,9 @@ def is_token_blacklisted(jti):
 # JWT Session Management Routes (Admin Only)
 @jwt_bp.route('/sessions', methods=['GET'])
 @jwt_required()
+@admin_required
 def get_active_sessions():
     """Get all active JWT sessions (admin only)"""
-    current_username = get_jwt_identity()
-    current_user = User.query.filter_by(username=current_username).first()
-
-    if not current_user or not current_user.is_admin:
-        return jsonify({'error': 'Admin privileges required'}), 403
-
     try:
         # Get active sessions that haven't expired
         active_sessions = JWTSession.query.filter(
@@ -192,29 +188,26 @@ def get_active_sessions():
                 'is_expired': session.is_expired
             })
 
-        return jsonify({
-            'sessions': sessions_data,
-            'total': len(sessions_data)
-        }), 200
+        return success_response(
+            'Active sessions retrieved successfully',
+            {
+                'sessions': sessions_data,
+                'total': len(sessions_data)
+            }
+        )
     except Exception as e:
-        print(f"Error fetching sessions: {e}")
-        return jsonify({'error': 'Internal server error'}), 500
+        return error_response(f'Failed to retrieve sessions: {str(e)}', 500)
 
 
 @jwt_bp.route('/sessions/<int:session_id>/expire', methods=['POST'])
 @jwt_required()
+@admin_required
 def expire_session(session_id):
     """Force expire a JWT session (admin only)"""
-    current_username = get_jwt_identity()
-    current_user = User.query.filter_by(username=current_username).first()
-
-    if not current_user or not current_user.is_admin:
-        return jsonify({'error': 'Admin privileges required'}), 403
-
     try:
         session = JWTSession.query.get(session_id)
         if not session:
-            return jsonify({'error': 'Session not found'}), 404
+            return error_response('Session not found', 404)
 
         # Mark session as inactive
         session.is_active = False
@@ -223,25 +216,19 @@ def expire_session(session_id):
         # Add token to blacklist
         blacklist_token(session.jti, timedelta(hours=1))
 
-        return jsonify({
-            'message': 'Session expired successfully',
-            'session_id': session_id
-        }), 200
+        return success_response(
+            'Session expired successfully',
+            {'session_id': session_id}
+        )
     except Exception as e:
-        print(f"Error expiring session: {e}")
-        return jsonify({'error': 'Internal server error'}), 500
+        return error_response(f'Failed to expire session: {str(e)}', 500)
 
 
 @jwt_bp.route('/sessions/expire-all', methods=['POST'])
 @jwt_required()
+@admin_required
 def expire_all_sessions():
     """Expire all active JWT sessions (admin only)"""
-    current_username = get_jwt_identity()
-    current_user = User.query.filter_by(username=current_username).first()
-
-    if not current_user or not current_user.is_admin:
-        return jsonify({'error': 'Admin privileges required'}), 403
-
     try:
         # Get all active sessions
         active_sessions = JWTSession.query.filter(
@@ -258,13 +245,12 @@ def expire_all_sessions():
 
         db.session.commit()
 
-        return jsonify({
-            'message': f'Successfully expired {expired_count} sessions',
-            'expired_count': expired_count
-        }), 200
+        return success_response(
+            f'Successfully expired {expired_count} sessions',
+            {'expired_count': expired_count}
+        )
     except Exception as e:
-        print(f"Error expiring all sessions: {e}")
-        return jsonify({'error': 'Internal server error'}), 500
+        return error_response(f'Failed to expire all sessions: {str(e)}', 500)
 
 
 # The end.

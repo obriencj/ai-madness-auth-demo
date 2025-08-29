@@ -21,7 +21,7 @@ from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identi
 from .model import db, User, GSSAPIRealm, GSSAPIAccount
 from .crypto import KeytabEncryption
 from .keytab_cache import get_keytab_cache
-from .utils import generate_unique_username
+from .utils import generate_unique_username, admin_required, success_response, error_response, format_gssapi_realm_response
 
 try:
     import gssapi
@@ -491,29 +491,23 @@ def get_gssapi_realms():
 
 @gssapi_bp.route('/realms', methods=['POST'])
 @jwt_required()
+@admin_required
 def create_gssapi_realm():
     """Create new GSSAPI realm (admin only)"""
     try:
-        current_username = get_jwt_identity()
-        current_user = User.query.filter_by(username=current_username).first()
-
-        if not current_user or not current_user.is_admin:
-            return jsonify({'error': 'Admin privileges required'}), 403
-
         data = request.get_json()
         if not data or not data.get('name') or not data.get('realm') or not data.get('kdc_hosts') or not data.get('service_principal') or not data.get('keytab_data'):
-            return jsonify({'error': 'Missing required fields: name, realm, kdc_hosts, service_principal, keytab_data'}), 400
+            return error_response('Missing required fields: name, realm, kdc_hosts, service_principal, keytab_data', 400)
 
         # Check if realm already exists
         if GSSAPIRealm.query.filter_by(name=data['name']).first():
-            return jsonify({'error': 'Realm name already exists'}), 400
+            return error_response('Realm name already exists', 400)
 
         # Decode and validate keytab data
         try:
             keytab_data = base64.b64decode(data['keytab_data'])
         except Exception:
-            return jsonify({'error': 'Invalid keytab_data format. Must be base64 encoded.'}), 400
-        
+            return error_response('Invalid keytab_data format. Must be base64 encoded.', 400)
         
         # Encrypt the keytab
         crypto = KeytabEncryption()
@@ -521,7 +515,7 @@ def create_gssapi_realm():
         # Validate keytab format
         is_valid_format, format_msg = crypto.validate_keytab_format(keytab_data)
         if not is_valid_format:
-            return jsonify({'error': f'Keytab validation failed: {format_msg}'}), 400
+            return error_response(f'Keytab validation failed: {format_msg}', 400)
 
         encrypted_result = crypto.encrypt_keytab(keytab_data)
         
@@ -549,7 +543,7 @@ def create_gssapi_realm():
         
         is_valid, validation_msg = validate_gssapi_realm_config(realm_config)
         if not is_valid:
-            return jsonify({'error': f'GSSAPI configuration validation failed: {validation_msg}'}), 400
+            return error_response(f'GSSAPI configuration validation failed: {validation_msg}', 400)
 
         # If this is set as default, unset other defaults
         if new_realm.default_realm:
@@ -558,40 +552,26 @@ def create_gssapi_realm():
         db.session.add(new_realm)
         db.session.commit()
 
-        return jsonify({
-            'message': 'GSSAPI realm created successfully',
-            'realm': {
-                'id': new_realm.id,
-                'name': new_realm.name,
-                'realm': new_realm.realm,
-                'kdc_hosts': new_realm.kdc_hosts,
-                'admin_server': new_realm.admin_server,
-                'service_principal': new_realm.service_principal,
-                'has_keytab': True,
-                'default_realm': new_realm.default_realm,
-                'is_active': new_realm.is_active
-            }
-        }), 201
+        return success_response(
+            'GSSAPI realm created successfully',
+            {'realm': format_gssapi_realm_response(new_realm)},
+            201
+        )
 
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': f'Error creating GSSAPI realm: {str(e)}'}), 500
+        return error_response(f'Error creating GSSAPI realm: {str(e)}', 500)
 
 
 @gssapi_bp.route('/realms/<int:realm_id>', methods=['PUT'])
 @jwt_required()
+@admin_required
 def update_gssapi_realm(realm_id):
     """Update GSSAPI realm (admin only)"""
     try:
-        current_username = get_jwt_identity()
-        current_user = User.query.filter_by(username=current_username).first()
-
-        if not current_user or not current_user.is_admin:
-            return jsonify({'error': 'Admin privileges required'}), 403
-
         realm = GSSAPIRealm.query.get(realm_id)
         if not realm:
-            return jsonify({'error': 'GSSAPI realm not found'}), 404
+            return error_response('GSSAPI realm not found', 404)
 
         data = request.get_json()
 
@@ -599,7 +579,7 @@ def update_gssapi_realm(realm_id):
             # Check if new name conflicts with existing realm
             existing_realm = GSSAPIRealm.query.filter_by(name=data['name']).first()
             if existing_realm and existing_realm.id != realm_id:
-                return jsonify({'error': 'Realm name already exists'}), 400
+                return error_response('Realm name already exists', 400)
             realm.name = data['name']
 
         if 'realm' in data:
@@ -619,13 +599,13 @@ def update_gssapi_realm(realm_id):
             try:
                 keytab_data = base64.b64decode(data['keytab_data'])
             except Exception:
-                return jsonify({'error': 'Invalid keytab_data format. Must be base64 encoded.'}), 400
+                return error_response('Invalid keytab_data format. Must be base64 encoded.', 400)
             
             # Validate keytab format
             crypto = KeytabEncryption()
             is_valid_format, format_msg = crypto.validate_keytab_format(keytab_data)
             if not is_valid_format:
-                return jsonify({'error': f'Keytab validation failed: {format_msg}'}), 400
+                return error_response(f'Keytab validation failed: {format_msg}', 400)
             
             # Encrypt the new keytab
             encrypted_result = crypto.encrypt_keytab(keytab_data)
@@ -658,49 +638,34 @@ def update_gssapi_realm(realm_id):
         
         is_valid, validation_msg = validate_gssapi_realm_config(realm_config)
         if not is_valid:
-            return jsonify({'error': f'GSSAPI configuration validation failed: {validation_msg}'}), 400
+            return error_response(f'GSSAPI configuration validation failed: {validation_msg}', 400)
 
         realm.updated_at = db.func.current_timestamp()
         db.session.commit()
 
-        return jsonify({
-            'message': 'GSSAPI realm updated successfully',
-            'realm': {
-                'id': realm.id,
-                'name': realm.name,
-                'realm': realm.realm,
-                'kdc_hosts': realm.kdc_hosts,
-                'admin_server': realm.admin_server,
-                'service_principal': realm.service_principal,
-                'has_keytab': bool(realm.encrypted_keytab),
-                'default_realm': realm.default_realm,
-                'is_active': realm.is_active
-            }
-        }), 200
+        return success_response(
+            'GSSAPI realm updated successfully',
+            {'realm': format_gssapi_realm_response(realm)}
+        )
 
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': f'Error updating GSSAPI realm: {str(e)}'}), 500
+        return error_response(f'Error updating GSSAPI realm: {str(e)}', 500)
 
 
 @gssapi_bp.route('/realms/<int:realm_id>', methods=['DELETE'])
 @jwt_required()
+@admin_required
 def delete_gssapi_realm(realm_id):
     """Delete GSSAPI realm (admin only)"""
     try:
-        current_username = get_jwt_identity()
-        current_user = User.query.filter_by(username=current_username).first()
-
-        if not current_user or not current_user.is_admin:
-            return jsonify({'error': 'Admin privileges required'}), 403
-
         realm = GSSAPIRealm.query.get(realm_id)
         if not realm:
-            return jsonify({'error': 'GSSAPI realm not found'}), 404
+            return error_response('GSSAPI realm not found', 404)
 
         # Check if realm has linked accounts
         if GSSAPIAccount.query.filter_by(realm_id=realm_id).first():
-            return jsonify({'error': 'Cannot delete realm with linked accounts'}), 400
+            return error_response('Cannot delete realm with linked accounts', 400)
 
         # Invalidate cache before deletion
         cache = get_keytab_cache()
@@ -709,11 +674,11 @@ def delete_gssapi_realm(realm_id):
         db.session.delete(realm)
         db.session.commit()
 
-        return jsonify({'message': 'GSSAPI realm deleted successfully'}), 200
+        return success_response('GSSAPI realm deleted successfully')
 
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': f'Error deleting GSSAPI realm: {str(e)}'}), 500
+        return error_response(f'Error deleting GSSAPI realm: {str(e)}', 500)
 
 
 @gssapi_bp.route('/accounts', methods=['GET'])
@@ -749,46 +714,35 @@ def get_gssapi_accounts():
 
 @gssapi_bp.route('/cache/stats', methods=['GET'])
 @jwt_required()
+@admin_required
 def get_cache_stats():
     """Get keytab cache statistics (admin only)"""
     try:
-        current_username = get_jwt_identity()
-        current_user = User.query.filter_by(username=current_username).first()
-
-        if not current_user or not current_user.is_admin:
-            return jsonify({'error': 'Admin privileges required'}), 403
-
         cache = get_keytab_cache()
         stats = cache.get_cache_stats()
         
-        return jsonify({
-            'cache_stats': stats
-        }), 200
+        return success_response(
+            'Cache statistics retrieved successfully',
+            {'cache_stats': stats}
+        )
 
     except Exception as e:
-        return jsonify({'error': f'Error retrieving cache stats: {str(e)}'}), 500
+        return error_response(f'Error retrieving cache stats: {str(e)}', 500)
 
 
 @gssapi_bp.route('/cache/clear', methods=['POST'])
 @jwt_required()
+@admin_required
 def clear_cache():
     """Clear all keytab caches (admin only)"""
     try:
-        current_username = get_jwt_identity()
-        current_user = User.query.filter_by(username=current_username).first()
-
-        if not current_user or not current_user.is_admin:
-            return jsonify({'error': 'Admin privileges required'}), 403
-
         cache = get_keytab_cache()
         cache.clear_all()
         
-        return jsonify({
-            'message': 'All keytab caches cleared successfully'
-        }), 200
+        return success_response('All keytab caches cleared successfully')
 
     except Exception as e:
-        return jsonify({'error': f'Error clearing cache: {str(e)}'}), 500
+        return error_response(f'Error clearing cache: {str(e)}', 500)
 
 
 # The end.
