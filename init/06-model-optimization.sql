@@ -47,51 +47,109 @@ CREATE TABLE IF NOT EXISTS audit_log (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
--- Add database constraints
+-- Add database constraints (using DO blocks to handle existing constraints safely)
 -- User table constraints
-ALTER TABLE "user" 
-ADD CONSTRAINT IF NOT EXISTS username_min_length CHECK (length(username) >= 3),
-ADD CONSTRAINT IF NOT EXISTS username_max_length CHECK (length(username) <= 80),
-ADD CONSTRAINT IF NOT EXISTS login_attempts_non_negative CHECK (login_attempts >= 0);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'username_min_length') THEN
+        ALTER TABLE "user" ADD CONSTRAINT username_min_length CHECK (length(username) >= 3);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'username_max_length') THEN
+        ALTER TABLE "user" ADD CONSTRAINT username_max_length CHECK (length(username) <= 80);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'login_attempts_non_negative') THEN
+        ALTER TABLE "user" ADD CONSTRAINT login_attempts_non_negative CHECK (login_attempts >= 0);
+    END IF;
+END $$;
 
 -- OAuth provider constraints
-ALTER TABLE oauth_provider 
-ADD CONSTRAINT IF NOT EXISTS provider_name_min_length CHECK (length(name) >= 2),
-ADD CONSTRAINT IF NOT EXISTS provider_name_max_length CHECK (length(name) <= 50),
-ADD CONSTRAINT IF NOT EXISTS client_id_min_length CHECK (length(client_id) >= 1),
-ADD CONSTRAINT IF NOT EXISTS scope_min_length CHECK (length(scope) >= 1);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'provider_name_min_length') THEN
+        ALTER TABLE oauth_provider ADD CONSTRAINT provider_name_min_length CHECK (length(name) >= 2);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'provider_name_max_length') THEN
+        ALTER TABLE oauth_provider ADD CONSTRAINT provider_name_max_length CHECK (length(name) <= 50);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'client_id_min_length') THEN
+        ALTER TABLE oauth_provider ADD CONSTRAINT client_id_min_length CHECK (length(client_id) >= 1);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'scope_min_length') THEN
+        ALTER TABLE oauth_provider ADD CONSTRAINT scope_min_length CHECK (length(scope) >= 1);
+    END IF;
+END $$;
 
 -- OAuth account constraints
-ALTER TABLE oauth_account 
-ADD CONSTRAINT IF NOT EXISTS provider_user_id_min_length CHECK (length(provider_user_id) >= 1);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'provider_user_id_min_length') THEN
+        ALTER TABLE oauth_account ADD CONSTRAINT provider_user_id_min_length CHECK (length(provider_user_id) >= 1);
+    END IF;
+END $$;
 
 -- JWT session constraints
-ALTER TABLE jwt_session 
-ADD CONSTRAINT IF NOT EXISTS jti_min_length CHECK (length(jti) >= 32),
-ADD CONSTRAINT IF NOT EXISTS expires_after_created CHECK (expires_at > created_at),
-ADD CONSTRAINT IF NOT EXISTS last_activity_after_created CHECK (last_activity_at >= created_at);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'jti_min_length') THEN
+        ALTER TABLE jwt_session ADD CONSTRAINT jti_min_length CHECK (length(jti) >= 32);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'expires_after_created') THEN
+        ALTER TABLE jwt_session ADD CONSTRAINT expires_after_created CHECK (expires_at > created_at);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'last_activity_after_created') THEN
+        ALTER TABLE jwt_session ADD CONSTRAINT last_activity_after_created CHECK (last_activity_at >= created_at);
+    END IF;
+END $$;
 
 -- GSSAPI realm constraints
-ALTER TABLE gssapi_realm 
-ADD CONSTRAINT IF NOT EXISTS realm_name_min_length CHECK (length(name) >= 2),
-ADD CONSTRAINT IF NOT EXISTS realm_name_max_length CHECK (length(name) <= 100),
-ADD CONSTRAINT IF NOT EXISTS realm_domain_min_length CHECK (length(realm) >= 3),
-ADD CONSTRAINT IF NOT EXISTS kdc_hosts_not_empty CHECK (array_length(kdc_hosts, 1) > 0);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'realm_name_min_length') THEN
+        ALTER TABLE gssapi_realm ADD CONSTRAINT realm_name_min_length CHECK (length(name) >= 2);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'realm_name_max_length') THEN
+        ALTER TABLE gssapi_realm ADD CONSTRAINT realm_name_max_length CHECK (length(name) <= 100);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'realm_domain_min_length') THEN
+        ALTER TABLE gssapi_realm ADD CONSTRAINT realm_domain_min_length CHECK (length(realm) >= 3);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'kdc_hosts_not_empty') THEN
+        ALTER TABLE gssapi_realm ADD CONSTRAINT kdc_hosts_not_empty CHECK (array_length(kdc_hosts, 1) > 0);
+    END IF;
+END $$;
 
 -- GSSAPI account constraints
-ALTER TABLE gssapi_account 
-ADD CONSTRAINT IF NOT EXISTS principal_name_min_length CHECK (length(principal_name) >= 3);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'principal_name_min_length') THEN
+        ALTER TABLE gssapi_account ADD CONSTRAINT principal_name_min_length CHECK (length(principal_name) >= 3);
+    END IF;
+END $$;
 
 -- App config constraints
-ALTER TABLE app_config_version 
-ADD CONSTRAINT IF NOT EXISTS version_positive CHECK (version > 0);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'version_positive') THEN
+        ALTER TABLE app_config_version ADD CONSTRAINT version_positive CHECK (version > 0);
+    END IF;
+END $$;
 
 -- Audit log constraints
-ALTER TABLE audit_log 
-ADD CONSTRAINT IF NOT EXISTS action_min_length CHECK (length(action) >= 3),
-ADD CONSTRAINT IF NOT EXISTS action_max_length CHECK (length(action) <= 100),
-ADD CONSTRAINT IF NOT EXISTS resource_type_min_length CHECK (length(resource_type) >= 2),
-ADD CONSTRAINT IF NOT EXISTS resource_type_max_length CHECK (length(resource_type) <= 50);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'action_min_length') THEN
+        ALTER TABLE audit_log ADD CONSTRAINT action_min_length CHECK (length(action) >= 3);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'action_max_length') THEN
+        ALTER TABLE audit_log ADD CONSTRAINT action_max_length CHECK (length(action) <= 100);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'resource_type_min_length') THEN
+        ALTER TABLE audit_log ADD CONSTRAINT resource_type_min_length CHECK (length(resource_type) >= 2);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'resource_type_max_length') THEN
+        ALTER TABLE audit_log ADD CONSTRAINT resource_type_max_length CHECK (length(resource_type) <= 50);
+    END IF;
+END $$;
 
 -- Create performance indexes
 -- User table indexes
