@@ -12,7 +12,6 @@ The scripts must be executed in the following order:
 4. **04-app-config.sql** - Adds application configuration versioning
 5. **05-gssapi-support.sql** - Adds GSSAPI/Kerberos authentication support
 6. **06-model-optimization.sql** - Adds new fields, constraints, and indexes
-7. **07-data-migration.sql** - Populates new fields with default values
 
 ## Phase 1.2 Model Optimizations
 
@@ -94,14 +93,12 @@ psql -d auth_demo -f 03-jwt-sessions.sql
 psql -d auth_demo -f 04-app-config.sql
 psql -d auth_demo -f 05-gssapi-support.sql
 psql -d auth_demo -f 06-model-optimization.sql
-psql -d auth_demo -f 07-data-migration.sql
 ```
 
 ### Upgrading Existing Database
 ```bash
-# Run only the new optimization scripts
+# Run only the new optimization script
 psql -d auth_demo -f 06-model-optimization.sql
-psql -d auth_demo -f 07-data-migration.sql
 ```
 
 ### Verification
