@@ -133,13 +133,12 @@ def delete_user(user_id):
     
     return redirect(url_for('admin.admin'))
 
-@app.route('/admin/sessions')
+@admin_bp.route('/sessions')
 @admin_required
 def jwt_sessions():
     """JWT sessions management page"""
     try:
-        response = g.client.admin.get_jwt_sessions()
-        
+        response = g.client.admin.get_jwt_sessions()        
         if response.status_code == 200:
             sessions_data = response.json()
             return render_template('jwt_sessions.html', sessions=sessions_data['sessions'])
@@ -149,6 +148,43 @@ def jwt_sessions():
     except requests.RequestException:
         flash('Connection error', 'error')
         return redirect(url_for('admin'))
+
+
+@admin_bp.route('/sessions/<int:session_id>/expire', methods=['POST'])
+@admin_required
+def expire_session(session_id):
+    """Expire a specific JWT session"""
+    try:
+        response = g.client.admin.expire_jwt_session(session_id)
+        if response.status_code == 200:
+            return jsonify({'message': 'Session expired successfully'}), 200
+        else:
+            error_data = response.json()
+            return jsonify({'error': error_data.get("error", "Unknown error")}), 400
+    except requests.RequestException:
+        return jsonify({'error': 'Connection error'}), 500
+
+
+@admin_bp.route('/sessions/expire-all', methods=['POST'])
+@admin_required
+def expire_all_sessions():
+    """Expire all active JWT sessions"""
+    try:
+        response = g.client.admin.expire_all_jwt_sessions()        
+        if response.status_code == 200:
+            return jsonify({'message': 'All sessions expired successfully'}), 200
+        else:
+            error_data = response.json()
+            return jsonify({'error': error_data.get("error", "Unknown error")}), 400
+    except requests.RequestException:
+        return jsonify({'error': 'Connection error'}), 500
+
+
+@admin_bp.route('/config')
+@admin_required
+def config_management():
+    """Configuration management page"""
+    return render_template('config.html')
 
 
 @admin_bp.route('/oauth-providers')
