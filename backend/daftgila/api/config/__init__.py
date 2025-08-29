@@ -20,6 +20,7 @@ from flask_jwt_extended import jwt_required
 from .model import db, AppConfigVersion
 from .utils import admin_required, get_current_user, success_response, error_response
 from .audit import log_config_action, AuditActions
+from .schema import SystemConfig
 
 # Create configuration blueprints
 config_bp = Blueprint('config', __name__, url_prefix='/api/v1/admin/config')
@@ -39,28 +40,9 @@ def get_active_config():
 
 def get_default_config():
     """Get default configuration if no active config exists."""
-    return {
-        'auth': {
-            'jwt_lifetime_hours': 1,
-            'allow_user_registration': True,
-            'allow_user_login': True,
-            'require_email_verification': False
-        },
-        'oauth': {
-            'enabled_providers': ['google', 'github'],
-            'auto_link_accounts': True
-        },
-        'gssapi': {
-            'enabled': True,
-            'default_realm': 'LOCAL.REALM'
-        },
-        'security': {
-            'max_login_attempts': 5,
-            'lockout_duration_minutes': 30,
-            'password_min_length': 8,
-            'require_strong_password': False
-        }
-    }
+    # Use the schema defaults for consistency
+    default_config = SystemConfig()
+    return default_config.dict()
 
 
 def get_config_value(key_path, default=None):
@@ -128,6 +110,23 @@ def get_active_config_endpoint():
         return error_response(f'Failed to retrieve configuration: {str(e)}', 500)
 
 
+@config_bp.route('/schema', methods=['GET'])
+@jwt_required()
+@admin_required
+def get_config_schema():
+    """Get configuration schema information (admin only)."""
+    try:
+        from .schema import get_schema_info
+        schema_info = get_schema_info()
+        
+        return success_response(
+            'Configuration schema retrieved successfully',
+            {'schema': schema_info}
+        )
+    except Exception as e:
+        return error_response(f'Failed to retrieve schema: {str(e)}', 500)
+
+
 @config_bp.route('/update', methods=['PUT'])
 @jwt_required()
 @admin_required
@@ -142,18 +141,23 @@ def update_config():
         if not data or 'config_data' not in data:
             return error_response('Missing config_data', 400)
         
-        # Validate JSON configuration
-        try:
-            if isinstance(data['config_data'], str):
-                json.loads(data['config_data'])
-            else:
-                json.dumps(data['config_data'])  # Test if it's JSON serializable
-        except Exception as e:
-            return error_response(f'Invalid configuration format: {str(e)}', 400)
+        # Validate configuration against schema
+        from .schema import validate_config_data
+        is_valid, error_message, validated_config = validate_config_data(data['config_data'])
+        if not is_valid:
+            return error_response(error_message, 400)
         
-        # Update configuration
-        active_config.config_data = data['config_data']
+        # Update configuration with validated data
+        active_config.config_data = validated_config.dict()
         active_config.updated_at = db.func.current_timestamp()
+        
+        # Log the configuration update
+        current_user = get_current_user()
+        log_config_action(
+            user_id=current_user.id,
+            action=AuditActions.CONFIG_UPDATED,
+            details=f"Configuration updated to version {active_config.version}"
+        )
         
         db.session.commit()
         
@@ -162,7 +166,7 @@ def update_config():
             {
                 'id': active_config.id,
                 'version': active_config.version,
-                'description': active_config.description
+                'description': data.get('description', 'Configuration updated')
             }
         )
     except Exception as e:
