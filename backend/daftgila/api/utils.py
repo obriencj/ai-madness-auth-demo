@@ -83,6 +83,57 @@ def admin_required(f):
     return decorated_function
 
 
+def admin_required_with_audit(action, resource_type=None):
+    """
+    Decorator to require admin privileges and automatically log actions.
+    
+    Args:
+        action (str): The action being performed (from AuditActions)
+        resource_type (str, optional): The type of resource being acted upon
+        
+    Returns:
+        The decorated function
+    """
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            from .jwt import get_jwt_identity
+            from .audit import log_action, AuditActions
+            
+            current_username = get_jwt_identity()
+            current_user = User.query.filter_by(username=current_username).first()
+            
+            if not current_user or not current_user.is_admin:
+                return jsonify({'error': 'Admin privileges required'}), 403
+            
+            # Execute the function
+            result = f(*args, **kwargs)
+            
+            # Log the action if it was successful (status code < 400)
+            if hasattr(result, '__getitem__') and len(result) >= 2:
+                status_code = result[1]
+                if status_code < 400:
+                    # Extract resource ID from kwargs if available
+                    resource_id = kwargs.get('user_id') or kwargs.get('provider_id') or kwargs.get('realm_id') or kwargs.get('session_id') or kwargs.get('version_id')
+                    
+                    log_action(
+                        user_id=current_user.id,
+                        action=action,
+                        resource_type=resource_type or 'system',
+                        resource_id=resource_id,
+                        details={
+                            'endpoint': request.endpoint,
+                            'method': request.method,
+                            'ip_address': _get_client_ip(),
+                            'user_agent': request.headers.get('User-Agent')
+                        }
+                    )
+            
+            return result
+        return decorated_function
+    return decorator
+
+
 def get_current_user():
     """
     Get the current authenticated user from JWT token.
@@ -165,7 +216,10 @@ def format_user_response(user):
         'username': user.username,
         'email': user.email,
         'is_admin': user.is_admin,
-        'is_active': user.is_active
+        'is_active': user.is_active,
+        'created_at': user.created_at.isoformat() if hasattr(user, 'created_at') and user.created_at else None,
+        'updated_at': user.updated_at.isoformat() if hasattr(user, 'updated_at') and user.updated_at else None,
+        'last_login_at': user.last_login_at.isoformat() if hasattr(user, 'last_login_at') and user.last_login_at else None
     }
 
 
@@ -189,7 +243,9 @@ def format_oauth_provider_response(provider):
         'userinfo_url': provider.userinfo_url,
         'scope': provider.scope,
         'is_active': provider.is_active,
-        'created_at': provider.created_at.isoformat() if provider.created_at else None
+        'is_deleted': getattr(provider, 'is_deleted', False),
+        'created_at': provider.created_at.isoformat() if provider.created_at else None,
+        'updated_at': provider.updated_at.isoformat() if hasattr(provider, 'updated_at') and provider.updated_at else None
     }
 
 
@@ -212,8 +268,9 @@ def format_gssapi_realm_response(realm):
         'service_principal': realm.service_principal,
         'default_realm': realm.default_realm,
         'is_active': realm.is_active,
+        'is_deleted': getattr(realm, 'is_deleted', False),
         'created_at': realm.created_at.isoformat() if realm.created_at else None,
-        'updated_at': realm.updated_at.isoformat() if realm.updated_at else None
+        'updated_at': realm.updated_at.isoformat() if hasattr(realm, 'updated_at') and realm.updated_at else None
     }
 
 
@@ -251,6 +308,16 @@ def error_response(error_message, status_code=400, details=None):
     if details:
         response['details'] = details
     return jsonify(response), status_code
+
+
+def _get_client_ip():
+    """Get the client's IP address, handling proxy headers."""
+    if request.headers.get('X-Forwarded-For'):
+        return request.headers.get('X-Forwarded-For').split(',')[0].strip()
+    elif request.headers.get('X-Real-IP'):
+        return request.headers.get('X-Real-IP')
+    else:
+        return request.remote_addr
 
 
 # The end.
