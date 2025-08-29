@@ -57,19 +57,19 @@
                                                 <tbody>
                                                     <tr>
                                                         <td>JWT Lifetime (hours)</td>
-                                                        <td><span class="badge bg-info">{{ config.auth.jwt_lifetime_hours if config.auth.jwt_lifetime_hours else '1' }}</span></td>
+                                                        <td><span class="badge bg-info">{{ config.auth.jwt_lifetime_hours if config.auth and config.auth.jwt_lifetime_hours else '1' }}</span></td>
                                                     </tr>
                                                     <tr>
                                                         <td>User Registration</td>
-                                                        <td><span class="badge bg-{{ 'success' if config.auth.allow_user_registration else 'danger' }}">{{ 'Allowed' if config.auth.allow_user_registration else 'Disabled' }}</span></td>
+                                                        <td><span class="badge bg-{{ 'success' if config.auth and config.auth.allow_user_registration else 'danger' }}">{{ 'Allowed' if config.auth and config.auth.allow_user_registration else 'Disabled' }}</span></td>
                                                     </tr>
                                                     <tr>
                                                         <td>User Login</td>
-                                                        <td><span class="badge bg-{{ 'success' if config.auth.allow_user_login else 'danger' }}">{{ 'Allowed' if config.auth.allow_user_login else 'Disabled' }}</span></td>
+                                                        <td><span class="badge bg-{{ 'success' if config.auth and config.auth.allow_user_login else 'danger' }}">{{ 'Allowed' if config.auth and config.auth.allow_user_login else 'Disabled' }}</span></td>
                                                     </tr>
                                                     <tr>
                                                         <td>Email Verification</td>
-                                                        <td><span class="badge bg-{{ 'warning' if config.auth.require_email_verification else 'secondary' }}">{{ 'Required' if config.auth.require_email_verification else 'Optional' }}</span></td>
+                                                        <td><span class="badge bg-{{ 'warning' if config.auth and config.auth.require_email_verification else 'secondary' }}">{{ 'Required' if config.auth and config.auth.require_email_verification else 'Optional' }}</span></td>
                                                     </tr>
                                                 </tbody>
                                             </table>
@@ -85,7 +85,7 @@
                                                     <tr>
                                                         <td>Enabled Providers</td>
                                                         <td>
-                                                            {% if config.oauth.enabled_providers %}
+                                                            {% if config.oauth and config.oauth.enabled_providers %}
                                                                 {% for provider in config.oauth.enabled_providers %}
                                                                     <span class="badge bg-primary me-1">{{ provider|title }}</span>
                                                                 {% endfor %}
@@ -96,7 +96,7 @@
                                                     </tr>
                                                     <tr>
                                                         <td>Auto-link Accounts</td>
-                                                        <td><span class="badge bg-{{ 'success' if config.oauth.auto_link_accounts else 'danger' }}">{{ 'Enabled' if config.oauth.auto_link_accounts else 'Disabled' }}</span></td>
+                                                        <td><span class="badge bg-{{ 'success' if config.oauth and config.oauth.auto_link_accounts else 'danger' }}">{{ 'Enabled' if config.oauth and config.oauth.auto_link_accounts else 'Disabled' }}</span></td>
                                                     </tr>
                                                 </tbody>
                                             </table>
@@ -111,11 +111,11 @@
                                                 <tbody>
                                                     <tr>
                                                         <td>Enabled</td>
-                                                        <td><span class="badge bg-{{ 'success' if config.gssapi.enabled else 'danger' }}">{{ 'Enabled' if config.gssapi.enabled else 'Disabled' }}</span></td>
+                                                        <td><span class="badge bg-{{ 'success' if config.gssapi and config.gssapi.enabled else 'danger' }}">{{ 'Enabled' if config.gssapi and config.gssapi.enabled else 'Disabled' }}</span></td>
                                                     </tr>
                                                     <tr>
                                                         <td>Default Realm</td>
-                                                        <td><code>{{ config.gssapi.default_realm if config.gssapi.default_realm else 'LOCAL.REALM' }}</code></td>
+                                                        <td><code>{{ config.gssapi.default_realm if config.gssapi and config.gssapi.default_realm else 'LOCAL.REALM' }}</code></td>
                                                     </tr>
                                                 </tbody>
                                             </table>
@@ -130,19 +130,19 @@
                                                 <tbody>
                                                     <tr>
                                                         <td>Max Login Attempts</td>
-                                                        <td><span class="badge bg-warning">{{ config.security.max_login_attempts if config.security.max_login_attempts else '5' }}</span></td>
+                                                        <td><span class="badge bg-warning">{{ config.security.max_login_attempts if config.security and config.security.max_login_attempts else '5' }}</span></td>
                                                     </tr>
                                                     <tr>
                                                         <td>Lockout Duration (min)</td>
-                                                        <td><span class="badge bg-warning">{{ config.security.lockout_duration_minutes if config.security.lockout_duration_minutes else '30' }}</span></td>
+                                                        <td><span class="badge bg-warning">{{ config.security.lockout_duration_minutes if config.security and config.security.lockout_duration_minutes else '30' }}</span></td>
                                                     </tr>
                                                     <tr>
                                                         <td>Min Password Length</td>
-                                                        <td><span class="badge bg-info">{{ config.security.password_min_length if config.security.password_min_length else '8' }}</span></td>
+                                                        <td><span class="badge bg-info">{{ config.security.password_min_length if config.security and config.security.password_min_length else '8' }}</span></td>
                                                     </tr>
                                                     <tr>
                                                         <td>Strong Password Required</td>
-                                                        <td><span class="badge bg-{{ 'warning' if config.security.require_strong_password else 'secondary' }}">{{ 'Required' if config.security.require_strong_password else 'Optional' }}</span></td>
+                                                        <td><span class="badge bg-{{ 'warning' if config.security and config.security.require_strong_password else 'secondary' }}">{{ 'Required' if config.security and config.security.require_strong_password else 'Optional' }}</span></td>
                                                     </tr>
                                                 </tbody>
                                             </table>
