@@ -312,6 +312,89 @@ class AuthClient:
             raise ValidationError("No active session to expire sessions")
         
         return self.http.post('/api/v1/auth/sessions/expire-all')
+    
+    # Additional OAuth Client Methods
+    
+    def oauth_link(self, provider: str, redirect_uri: str) -> str:
+        """
+        Get OAuth account linking URL for a provider.
+        
+        Args:
+            provider: OAuth provider name (e.g., 'google', 'github')
+            redirect_uri: Redirect URI for OAuth callback
+            
+        Returns:
+            OAuth linking URL
+            
+        Raises:
+            ValidationError: If provider or redirect_uri is invalid
+        """
+        if not provider or not provider.strip():
+            raise ValidationError("Provider is required", "provider", provider)
+        if not redirect_uri or not redirect_uri.strip():
+            raise ValidationError("Redirect URI is required", "redirect_uri", redirect_uri)
+        
+        # Build the OAuth linking URL
+        base_url = self.http.base_url
+        link_url = f"{base_url}/api/v1/auth/oauth/{provider.strip()}/link"
+        
+        # Add query parameters
+        params = {
+            'redirect_uri': redirect_uri.strip(),
+            'response_type': 'code'
+        }
+        
+        # Convert params to query string
+        query_string = '&'.join([f"{k}={v}" for k, v in params.items()])
+        return f"{link_url}?{query_string}"
+    
+    def oauth_link_callback(self, provider: str, code: str, redirect_uri: str) -> APIResponse:
+        """
+        Complete OAuth account linking with authorization code.
+        
+        Args:
+            provider: OAuth provider name
+            code: Authorization code from OAuth provider
+            redirect_uri: Redirect URI used in authorization
+            
+        Returns:
+            APIResponse with OAuth linking result
+            
+        Raises:
+            ValidationError: If any required fields are invalid
+        """
+        if not provider or not provider.strip():
+            raise ValidationError("Provider is required", "provider", provider)
+        if not code or not code.strip():
+            raise ValidationError("Authorization code is required", "code", code)
+        if not redirect_uri or not redirect_uri.strip():
+            raise ValidationError("Redirect URI is required", "redirect_uri", redirect_uri)
+        
+        data = {
+            'provider': provider.strip(),
+            'code': code.strip(),
+            'redirect_uri': redirect_uri.strip()
+        }
+        
+        return self.http.get(f'/api/v1/auth/oauth/{provider.strip()}/link/callback', params=data)
+    
+    def get_oauth_status(self, provider: str) -> APIResponse:
+        """
+        Get OAuth status for a specific provider.
+        
+        Args:
+            provider: OAuth provider name
+            
+        Returns:
+            APIResponse with OAuth status information
+            
+        Raises:
+            ValidationError: If provider is invalid
+        """
+        if not provider or not provider.strip():
+            raise ValidationError("Provider is required", "provider", provider)
+        
+        return self.http.get(f'/api/v1/auth/oauth/{provider.strip()}/status')
 
 
 # The end.

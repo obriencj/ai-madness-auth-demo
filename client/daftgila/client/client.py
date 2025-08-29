@@ -12,6 +12,9 @@ from typing import Optional, Dict, Any
 from .http import HTTPClient
 from .auth import AuthClient
 from .admin import AdminClient
+from .gssapi import GSSAPIClient
+from .jwt import JWTClient
+from .config import ConfigClient
 from .response import APIResponse
 from .exceptions import DaftGilaClientError
 
@@ -56,6 +59,9 @@ class DaftGilaClient:
         # Initialize specialized clients
         self.auth = AuthClient(self.http)
         self.admin = AdminClient(self.http)
+        self.gssapi = GSSAPIClient(self.http)
+        self.jwt = JWTClient(self.http)
+        self.config = ConfigClient(self.http)
         
         # Store configuration
         self.base_url = base_url

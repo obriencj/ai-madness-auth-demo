@@ -384,6 +384,137 @@ class AdminClient:
             APIResponse with expiration result
         """
         return self.http.post('/api/v1/admin/sessions/expire-all')
+    
+    def delete_user(self, user_id: int) -> APIResponse:
+        """
+        Delete a user account (admin only).
+        
+        Args:
+            user_id: ID of the user to delete
+            
+        Returns:
+            APIResponse with deletion result
+            
+        Raises:
+            ValidationError: If user_id is invalid
+        """
+        if not user_id or user_id <= 0:
+            raise ValidationError("Valid user ID is required", "user_id", user_id)
+        
+        return self.http.delete(f'/api/v1/admin/users/{user_id}')
+    
+    def delete_user_oauth_account(self, user_id: int, oauth_account_id: int) -> APIResponse:
+        """
+        Delete an OAuth account linked to a specific user (admin only).
+        
+        Args:
+            user_id: ID of the user
+            oauth_account_id: ID of the OAuth account to delete
+            
+        Returns:
+            APIResponse with deletion result
+            
+        Raises:
+            ValidationError: If user_id or oauth_account_id is invalid
+        """
+        if not user_id or user_id <= 0:
+            raise ValidationError("Valid user ID is required", "user_id", user_id)
+        if not oauth_account_id or oauth_account_id <= 0:
+            raise ValidationError("Valid OAuth account ID is required", "oauth_account_id", oauth_account_id)
+        
+        return self.http.delete(f'/api/v1/admin/users/{user_id}/oauth-accounts/{oauth_account_id}')
+    
+    # Configuration Management Methods
+    
+    def get_config(self) -> APIResponse:
+        """
+        Get the currently active system configuration (admin only).
+        
+        Returns:
+            APIResponse with system configuration
+        """
+        return self.http.get('/api/v1/admin/config')
+    
+    def update_config(self, config_data: Dict[str, Any]) -> APIResponse:
+        """
+        Update the system configuration (admin only).
+        
+        Args:
+            config_data: Configuration data to update
+            
+        Returns:
+            APIResponse with update result
+            
+        Raises:
+            ValidationError: If config_data is empty
+        """
+        if not config_data:
+            raise ValidationError("Configuration data is required")
+        
+        return self.http.post('/api/v1/admin/config', json_data=config_data)
+    
+    def get_config_versions(self) -> APIResponse:
+        """
+        Get all configuration versions (admin only).
+        
+        Returns:
+            APIResponse with list of configuration versions
+        """
+        return self.http.get('/api/v1/admin/config/versions')
+    
+    def get_config_version(self, version_id: int) -> APIResponse:
+        """
+        Get a specific configuration version (admin only).
+        
+        Args:
+            version_id: ID of the configuration version
+            
+        Returns:
+            APIResponse with configuration version data
+            
+        Raises:
+            ValidationError: If version_id is invalid
+        """
+        if not version_id or version_id <= 0:
+            raise ValidationError("Valid version ID is required", "version_id", version_id)
+        
+        return self.http.get(f'/api/v1/admin/config/versions/{version_id}')
+    
+    def activate_config_version(self, version_id: int) -> APIResponse:
+        """
+        Activate a specific configuration version (admin only).
+        
+        Args:
+            version_id: ID of the configuration version to activate
+            
+        Returns:
+            APIResponse with activation result
+            
+        Raises:
+            ValidationError: If version_id is invalid
+        """
+        if not version_id or version_id <= 0:
+            raise ValidationError("Valid version ID is required", "version_id", version_id)
+        
+        return self.http.post(f'/api/v1/admin/config/versions/{version_id}/activate')
+    
+    def delete_config_version(self, version_id: int) -> APIResponse:
+        """
+        Delete a specific configuration version (admin only).
+        
+        Args:
+            version_id: ID of the configuration version to delete
+            
+        Returns:
+            APIResponse with deletion result
+            
+        Raises:
+            ValidationError: If version_id is invalid
+        """
+        if not version_id or version_id <= 0:
+            raise ValidationError("Valid version ID is required", "version_id", version_id)
+        
+        return self.http.delete(f'/api/v1/admin/config/versions/{version_id}')
 
 
 # The end.
