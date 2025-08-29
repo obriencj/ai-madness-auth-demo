@@ -23,12 +23,14 @@ def create_app():
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
     
     # Register blueprints
-    from .auth import auth_bp
+    from .auth import auth_bp, oauth_bp, gssapi_bp
     from .admin import admin_bp
     from .user import user_bp
     from .dashboard import dashboard_bp
     
     app.register_blueprint(auth_bp)
+    app.register_blueprint(oauth_bp)
+    app.register_blueprint(gssapi_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(user_bp)
     app.register_blueprint(dashboard_bp)

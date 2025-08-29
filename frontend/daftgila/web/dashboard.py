@@ -20,8 +20,8 @@ from .utils import BACKEND_URL, extract_api_data
 # Create dashboard blueprint
 dashboard_bp = Blueprint('dashboard', __name__)
 
-# Import decorators from auth blueprint
-from .auth import login_required
+# Import decorators from auth package
+from .auth.core import login_required
 
 @dashboard_bp.route('/dashboard')
 @login_required

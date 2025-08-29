@@ -1,12 +1,11 @@
 """
-Authentication blueprint for the Daft Gila web frontend.
+Core authentication module for the Daft Gila web frontend.
 
-This module handles all authentication-related routes including:
+This module handles basic authentication functionality:
 - User login/logout
-- OAuth authentication flow
-- GSSAPI authentication
-- User registration
 - Session validation
+- User registration
+- Basic authentication decorators
 
 Author: Christopher O'Brien <obriencj@gmail.com>
 Assisted-By: Claude Sonnet 4 (AI Assistant)
@@ -18,9 +17,9 @@ from functools import wraps
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 
 # Import shared utilities
-from .utils import BACKEND_URL, extract_api_data
+from ..utils import BACKEND_URL, extract_api_data
 
-# Create auth blueprint
+# Create core auth blueprint
 auth_bp = Blueprint('auth', __name__)
 
 # Login required decorator
@@ -86,7 +85,6 @@ def login():
             
             if response.status_code == 200:
                 data = extract_api_data(response)
-                print(f"Data: {data}")
                 if data:
                     session['access_token'] = data.get('access_token')
                     session['user'] = data.get('user')
@@ -211,155 +209,5 @@ def register():
         pass  # Use default values if config service is unavailable
     
     return render_template('register.html', config=config)
-
-@auth_bp.route('/gssapi/login')
-def gssapi_login():
-    """GSSAPI login page"""
-    # Check if GSSAPI is enabled in configuration
-    try:
-        config_response = requests.get(f'{BACKEND_URL}/api/v1/auth/config')
-        config = extract_api_data(config_response, 'config', default={})
-        if not config.get('auth', {}).get('gssapi_enabled', True):
-            flash('GSSAPI authentication is currently disabled', 'error')
-            return redirect(url_for('auth.login'))
-    except requests.RequestException:
-        flash('Connection error', 'error')
-        return redirect(url_for('auth.login'))
-    
-    auth_header = request.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith('Negotiate '):
-        return jsonify({'error': 'GSSAPI authentication token required'}), 401, {'WWW-Authenticate': 'Negotiate'}
-        
-    # Extract the GSSAPI token from the Authorization header
-    gssapi_token = auth_header[10:]  # Remove 'Negotiate ' prefix
-        
-    # Make request to backend GSSAPI authenticate endpoint
-    auth_data = {
-        'gssapi_token': gssapi_token
-    }
-        
-    print(f"GSSAPI Auth: Sending to backend: {auth_data}")
-        
-    response = requests.post(
-        f'{BACKEND_URL}/api/v1/auth/gssapi/authenticate',
-        json=auth_data
-    )
-        
-    print(f"GSSAPI Auth: Backend response status: {response.status_code}")
-    print(f"GSSAPI Auth: Backend response: {response.text}")
-        
-    data = extract_api_data(response)
-    if data:
-        # Set session cookies for the authenticated user
-        session['access_token'] = data.get('access_token')
-        session['user'] = data.get('user')
-        session['is_admin'] = data.get('user', {}).get('is_admin')
-        
-        print(f"GSSAPI Auth: Session set - access_token: {bool(session.get('access_token'))}, user: {bool(session.get('user'))}, is_admin: {session.get('is_admin')}")
-        
-        # Redirect to dashboard on successful authentication
-        flash('GSSAPI authentication successful!', 'success')
-        return redirect(url_for('dashboard.dashboard'))
-    else:
-        error_message = extract_api_data(response, 'error', default='GSSAPI authentication failed')
-        print(f"GSSAPI Auth: Backend error: {error_message}")
-        flash(error_message, 'error')
-        return redirect(url_for('auth.login'))
-
-@auth_bp.route('/oauth/<provider>/login')
-def oauth_login(provider):
-    """Initiate OAuth login flow"""
-    # Check if OAuth is enabled in configuration
-    try:
-        config_response = requests.get(f'{BACKEND_URL}/api/v1/auth/config')
-        config = extract_api_data(config_response, 'config', default={})
-        if not config.get('auth', {}).get('oauth_enabled', True):
-            flash('OAuth authentication is currently disabled', 'error')
-            return redirect(url_for('auth.login'))
-        
-        # Check if provider exists in configuration
-        oauth_providers = config.get('oauth_providers', [])
-        provider_names = [p['name'] for p in oauth_providers]
-        if provider not in provider_names:
-            flash('Unsupported OAuth provider', 'error')
-            return redirect(url_for('auth.login'))
-    except requests.RequestException:
-        flash('Connection error', 'error')
-        return redirect(url_for('auth.login'))
-    
-    # Build redirect URI for OAuth callback
-    redirect_uri = url_for('auth.oauth_callback', provider=provider, _external=True)
-    
-    try:
-        response = requests.get(
-            f'{BACKEND_URL}/api/v1/auth/oauth/{provider}/authorize',
-            params={'redirect_uri': redirect_uri}
-        )
-        
-        auth_data = extract_api_data(response)
-        if auth_data:
-            return redirect(auth_data.get('authorization_url'))
-        else:
-            flash('Failed to initiate OAuth login', 'error')
-            return redirect(url_for('auth.login'))
-    except requests.RequestException:
-        flash('Connection error', 'error')
-        return redirect(url_for('auth.login'))
-
-@auth_bp.route('/oauth/<provider>/callback')
-def oauth_callback(provider):
-    """Handle OAuth callback"""
-    # Check if OAuth is enabled in configuration
-    try:
-        config_response = requests.get(f'{BACKEND_URL}/api/v1/auth/config')
-        config = extract_api_data(config_response, 'config', default={})
-        if not config.get('auth', {}).get('oauth_enabled', True):
-            flash('OAuth authentication is currently disabled', 'error')
-            return redirect(url_for('auth.login'))
-        
-        # Check if provider exists in configuration
-        oauth_providers = config.get('oauth_providers', [])
-        provider_names = [p['name'] for p in oauth_providers]
-        if provider not in provider_names:
-            flash('Unsupported OAuth provider', 'error')
-            return redirect(url_for('auth.login'))
-    except requests.RequestException:
-        flash('Connection error', 'error')
-        return redirect(url_for('auth.login'))
-    
-    code = request.args.get('code')
-    error = request.args.get('error')
-    
-    if error:
-        flash(f'OAuth error: {error}', 'error')
-        return redirect(url_for('auth.login'))
-    
-    if not code:
-        flash('Missing authorization code', 'error')
-        return redirect(url_for('auth.login'))
-    
-    # Build redirect URI for OAuth callback
-    redirect_uri = url_for('auth.oauth_callback', provider=provider, _external=True)
-    
-    try:
-        response = requests.get(
-            f'{BACKEND_URL}/api/v1/auth/oauth/{provider}/callback',
-            params={'code': code, 'redirect_uri': redirect_uri}
-        )
-        
-        data = extract_api_data(response)
-        if data:
-            session['access_token'] = data.get('access_token')
-            session['user'] = data.get('user')
-            session['is_admin'] = data.get('user', {}).get('is_admin')
-            flash(f'Login successful with {provider.title()}!', 'success')
-            return redirect(url_for('dashboard.dashboard'))
-        else:
-            error_message = extract_api_data(response, 'error', default='Unknown error')
-            flash(f'OAuth error: {error_message}', 'error')
-            return redirect(url_for('auth.login'))
-    except requests.RequestException:
-        flash('Connection error', 'error')
-        return redirect(url_for('auth.login'))
 
 # The end.
