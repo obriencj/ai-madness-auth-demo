@@ -277,7 +277,7 @@ def config():
             headers=headers
         )
         
-        config_data = extract_api_data(response, 'config', default={})
+        config_data = extract_api_data(response, default={})
         return render_template('config.html', config=config_data)
     except requests.RequestException:
         flash('Connection error', 'error')
