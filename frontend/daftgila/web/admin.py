@@ -24,7 +24,7 @@ from .auth import admin_required
 
 @admin_bp.route('/')
 @admin_required
-def admin():
+def admin_dashboard():
     """Admin dashboard - user management"""
     try:
         # Use injected client instead of direct requests
@@ -392,6 +392,24 @@ def delete_gssapi_realm(realm_id):
         flash(f'Connection error: {str(e)}', 'error')
     
     return redirect(url_for('admin.gssapi_realms'))
+
+
+@admin_bp.route('/api/users/<int:user_id>/oauth-accounts/<int:oauth_account_id>/remove', methods=['POST'])
+@admin_required
+def remove_oauth_account(user_id, oauth_account_id):
+    """Remove OAuth account from a user (admin only)"""
+    try:
+        # Use injected client instead of direct requests
+        response = g.client.admin.remove_user_oauth_account(user_id, oauth_account_id)
+        
+        if response.is_success:
+            flash('OAuth account removed successfully', 'success')
+        else:
+            flash(f'Error: {response.message}', 'error')
+    except Exception as e:
+        flash(f'Connection error: {str(e)}', 'error')
+    
+    return redirect(url_for('admin.admin_dashboard'))
 
 
 # The end.
