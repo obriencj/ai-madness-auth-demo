@@ -44,7 +44,8 @@ services:
 
   frontend:
     build:
-      context: ./frontend
+      context: .
+      dockerfile: frontend/Dockerfile
     environment:
       - BACKEND_URL=http://backend:5000
     depends_on:

@@ -9,6 +9,7 @@ Assisted-By: Claude Sonnet 4 (AI Assistant)
 License: GNU General Public License v3.0
 """
 
+
 import os
 from typing import Optional
 from daftgila.client import DaftGilaClient

@@ -133,6 +133,24 @@ def delete_user(user_id):
     
     return redirect(url_for('admin.admin'))
 
+@app.route('/admin/sessions')
+@admin_required
+def jwt_sessions():
+    """JWT sessions management page"""
+    try:
+        response = g.client.admin.get_jwt_sessions()
+        
+        if response.status_code == 200:
+            sessions_data = response.json()
+            return render_template('jwt_sessions.html', sessions=sessions_data['sessions'])
+        else:
+            flash('Failed to load JWT sessions', 'error')
+            return redirect(url_for('admin'))
+    except requests.RequestException:
+        flash('Connection error', 'error')
+        return redirect(url_for('admin'))
+
+
 @admin_bp.route('/oauth-providers')
 @admin_required
 def oauth_providers():

@@ -1,6 +1,6 @@
-# DaftGila Client
+# Daft Gila Client
 
-A Python client library for the DaftGila authentication platform API. This package provides an object-oriented interface for interacting with DaftGila API endpoints, handling authentication, and managing user sessions.
+A Python client library for the Daft Gila authentication platform API. This package provides an object-oriented interface for interacting with Daft Gila API endpoints, handling authentication, and managing user sessions.
 
 ## Features
 

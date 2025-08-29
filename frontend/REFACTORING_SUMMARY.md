@@ -206,4 +206,4 @@ The frontend refactoring has been completed successfully, providing:
 
 All routes now receive a properly configured `DaftGilaClient` instance via `g.client`, eliminating the need for direct `requests` calls and manual header management throughout the application.
 
-# The end.
+<!-- The end. -->
