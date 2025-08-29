@@ -511,22 +511,15 @@ def expire_all_sessions():
 def get_active_config():
     """Get the currently active configuration (admin only)."""
     try:
-        active_config = AppConfigVersion.query.filter_by(is_active=True).first()
-        if not active_config:
+        from .config import get_active_config as get_config, get_default_config
+        
+        config_data = get_config()
+        if not config_data:
             return error_response('No active configuration found', 404)
         
         return success_response(
             'Active configuration retrieved successfully',
-            {
-                'id': active_config.id,
-                'version': active_config.version,
-                'config_data': active_config.config_data,
-                'description': active_config.description,
-                'created_at': active_config.created_at.isoformat() if active_config.created_at else None,
-                'activated_at': active_config.activated_at.isoformat() if active_config.activated_at else None,
-                'created_by': active_config.creator.username if active_config.creator else None,
-                'activated_by': active_config.activator.username if active_config.activator else None
-            }
+            config_data
         )
     except Exception as e:
         return error_response(f'Failed to retrieve configuration: {str(e)}', 500)
