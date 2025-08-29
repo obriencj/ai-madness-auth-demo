@@ -10,7 +10,7 @@ License: GNU General Public License v3.0
 """
 
 from functools import wraps
-from flask import request
+from flask import request, jsonify
 from .model import User
 
 
@@ -286,7 +286,7 @@ def success_response(message, data=None, status_code=200):
     Returns:
         tuple: (response, status_code)
     """
-    response = {'message': message}
+    response = {'success': True, 'message': message}
     if data:
         response.update(data)
     return jsonify(response), status_code
@@ -304,7 +304,7 @@ def error_response(error_message, status_code=400, details=None):
     Returns:
         tuple: (response, status_code)
     """
-    response = {'error': error_message}
+    response = {'success': False, 'error': error_message}
     if details:
         response['details'] = details
     return jsonify(response), status_code

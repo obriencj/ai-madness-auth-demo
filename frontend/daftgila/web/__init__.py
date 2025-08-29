@@ -18,6 +18,59 @@ app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-change-in-production')
 
 BACKEND_URL = os.getenv('BACKEND_URL', 'http://localhost:5000')
 
+def extract_api_data(response, *keys, default=None):
+    """
+    Extract data from an API response with success checking and data extraction.
+    
+    This helper function handles the common pattern of:
+    1. Getting JSON from response
+    2. Checking success value
+    3. Extracting data dict from response
+    4. Getting specific values from the data dict
+    
+    Args:
+        response: The requests.Response object from an API call
+        *keys: Variable number of keys to extract from the data dict
+        default: Default value to return if any step fails
+        
+    Returns:
+        - If no keys provided: The entire data dict
+        - If one key provided: The value for that key
+        - If multiple keys provided: A tuple of values for those keys
+        - If any step fails: The default value (or None if not specified)
+        
+    Examples:
+        # Get entire data dict
+        data = extract_api_data(response)
+        
+        # Get single value
+        users = extract_api_data(response, 'users', default=[])
+        
+        # Get multiple values
+        users, count = extract_api_data(response, 'users', 'total_count', default=([], 0))
+    """
+    try:
+        if response.status_code != 200:
+            return default
+            
+        response_data = response.json()
+        if not response_data.get('success'):
+            return default
+            
+        data = response_data.get('data', {})
+        
+        if not keys:
+            return data
+            
+        if len(keys) == 1:
+            return data.get(keys[0], default)
+            
+        # Multiple keys - return tuple
+        return tuple(data.get(key, default) for key in keys)
+        
+    except (ValueError, KeyError, AttributeError):
+        return default
+
 
 @app.context_processor
 def inject_user():
@@ -146,7 +199,8 @@ def login():
     try:
         config_response = requests.get(f'{BACKEND_URL}/api/v1/auth/config')
         if config_response.status_code == 200:
-            config = config_response.json().get('config', {})
+            config_response_data = config_response.json()
+            config = config_response_data.get('data', {}).get('config', {}) if config_response_data.get('success') else {}
             print(f"Login: Loaded configuration with OAuth enabled: {config.get('auth', {}).get('oauth_enabled', True)}")
             print(f"Login: Loaded configuration with GSSAPI enabled: {config.get('auth', {}).get('gssapi_enabled', True)}")
             if config.get('auth', {}).get('oauth_enabled', True) and config.get('oauth_providers'):
@@ -210,36 +264,20 @@ def admin():
         response = requests.get(f'{BACKEND_URL}/api/v1/admin/users', headers=headers)
         print(f"Admin route: Response status: {response.status_code}")
         
-        if response.status_code == 200:
-            users = response.json()['users']
-            print(f"Admin route: Loaded {len(users)} users")
-            
-            # Fetch OAuth account information for each user
-            for user in users:
-                try:
-                    oauth_response = requests.get(
-                        f'{BACKEND_URL}/api/v1/admin/users/{user["id"]}/oauth-accounts',
-                        headers=headers
-                    )
-                    if oauth_response.status_code == 200:
-                        oauth_data = oauth_response.json()
-                        user['oauth_accounts'] = oauth_data['oauth_accounts']
-                    else:
-                        user['oauth_accounts'] = []
-                except requests.RequestException:
-                    user['oauth_accounts'] = []
-                    print(f"Failed to fetch OAuth accounts for user {user['id']}")
-        else:
-            users = []
-            error_msg = f'Failed to load users: {response.status_code}'
-            if response.status_code != 500:
-                try:
-                    error_data = response.json()
-                    error_msg += f' - {error_data.get("error", "Unknown error")}'
-                except:
-                    pass
-            flash(error_msg, 'error')
-            print(f"Admin route: {error_msg}")
+        users = extract_api_data(response, 'users', default=[])
+        print(f"Admin route: Loaded {len(users)} users")
+        
+        # Fetch OAuth account information for each user
+        for user in users:
+            try:
+                oauth_response = requests.get(
+                    f'{BACKEND_URL}/api/v1/admin/users/{user["id"]}/oauth-accounts',
+                    headers=headers
+                )
+                user['oauth_accounts'] = extract_api_data(oauth_response, 'oauth_accounts', default=[])
+            except requests.RequestException:
+                user['oauth_accounts'] = []
+                print(f"Failed to fetch OAuth accounts for user {user['id']}")
     except requests.RequestException as e:
         users = []
         flash(f'Connection error: {str(e)}', 'error')
@@ -254,10 +292,7 @@ def hello():
         headers = {'Authorization': f'Bearer {session["access_token"]}'}
         response = requests.get(f'{BACKEND_URL}/api/v1/hello', headers=headers)
         
-        if response.status_code == 200:
-            message = response.json()['message']
-        else:
-            message = f'Error fetching message: {response.status_code}'
+        message = extract_api_data(response, 'message', default='Hello World')
     except requests.RequestException:
         message = 'Connection error'
     
@@ -281,8 +316,8 @@ def create_user():
         if response.status_code == 201:
             flash('User created successfully', 'success')
         else:
-            error_data = response.json()
-            flash(f'Error: {error_data.get("error", "Unknown error")}', 'error')
+            error_message = extract_api_data(response, 'error', default='Unknown error')
+            flash(f'Error: {error_message}', 'error')
     except requests.RequestException:
         flash('Connection error', 'error')
     
@@ -312,8 +347,8 @@ def update_user(user_id):
         if response.status_code == 200:
             flash('User updated successfully', 'success')
         else:
-            error_data = response.json()
-            flash(f'Error: {error_data.get("error", "Unknown error")}', 'error')
+            error_message = extract_api_data(response, 'error', default='Unknown error')
+            flash(f'Error: {error_message}', 'error')
     except requests.RequestException:
         flash('Connection error', 'error')
     
@@ -334,8 +369,8 @@ def admin_remove_user_oauth_account(user_id, oauth_account_id):
         if response.status_code == 200:
             flash('OAuth account removed successfully', 'success')
         else:
-            error_data = response.json()
-            flash(f'Error: {error_data.get("error", "Unknown error")}', 'error')
+            error_message = extract_api_data(response, 'error', default='Unknown error')
+            flash(f'Error: {error_message}', 'error')
     except requests.RequestException:
         flash('Connection error', 'error')
     
@@ -353,9 +388,9 @@ def oauth_providers():
             headers=headers
         )
         
-        if response.status_code == 200:
-            providers_data = response.json()
-            return render_template('oauth_providers.html', providers=providers_data['providers'])
+        providers = extract_api_data(response, 'providers', default=[])
+        if providers:
+            return render_template('oauth_providers.html', providers=providers)
         else:
             flash('Failed to load OAuth providers', 'error')
             return redirect(url_for('admin'))
@@ -389,8 +424,8 @@ def create_oauth_provider():
         if response.status_code == 201:
             flash('OAuth provider created successfully', 'success')
         else:
-            error_data = response.json()
-            flash(f'Error: {error_data.get("error", "Unknown error")}', 'error')
+            error_message = extract_api_data(response, 'error', default='Unknown error')
+            flash(f'Error: {error_message}', 'error')
     except requests.RequestException:
         flash('Connection error', 'error')
     
@@ -426,8 +461,8 @@ def update_oauth_provider(provider_id):
         if response.status_code == 200:
             flash('OAuth provider updated successfully', 'success')
         else:
-            error_data = response.json()
-            flash(f'Error: {error_data.get("error", "Unknown error")}', 'error')
+            error_message = extract_api_data(response, 'error', default='Unknown error')
+            flash(f'Error: {error_message}', 'error')
     except requests.RequestException:
         flash('Connection error', 'error')
     
@@ -448,8 +483,8 @@ def delete_oauth_provider(provider_id):
         if response.status_code == 200:
             flash('OAuth provider deleted successfully', 'success')
         else:
-            error_data = response.json()
-            flash(f'Error: {error_data.get("error", "Unknown error")}', 'error')
+            error_message = extract_api_data(response, 'error', default='Unknown error')
+            flash(f'Error: {error_message}', 'error')
     except requests.RequestException:
         flash('Connection error', 'error')
     
@@ -467,9 +502,9 @@ def jwt_sessions():
             headers=headers
         )
         
-        if response.status_code == 200:
-            sessions_data = response.json()
-            return render_template('jwt_sessions.html', sessions=sessions_data['sessions'])
+        sessions = extract_api_data(response, 'sessions', default=[])
+        if sessions:
+            return render_template('jwt_sessions.html', sessions=sessions)
         else:
             flash('Failed to load JWT sessions', 'error')
             return redirect(url_for('admin'))
@@ -499,8 +534,8 @@ def expire_session(session_id):
         if response.status_code == 200:
             return jsonify({'message': 'Session expired successfully'}), 200
         else:
-            error_data = response.json()
-            return jsonify({'error': error_data.get("error", "Unknown error")}), 400
+            error_message = extract_api_data(response, 'error', default='Unknown error')
+            return jsonify({'error': error_message}), 400
     except requests.RequestException:
         return jsonify({'error': 'Connection error'}), 500
 
@@ -519,8 +554,8 @@ def expire_all_sessions():
         if response.status_code == 200:
             return jsonify({'message': 'All sessions expired successfully'}), 200
         else:
-            error_data = response.json()
-            return jsonify({'error': error_data.get("error", "Unknown error")}), 400
+            error_message = extract_api_data(response, 'error', default='Unknown error')
+            return jsonify({'error': error_message}), 400
     except requests.RequestException:
         return jsonify({'error': 'Connection error'}), 500
 
@@ -533,7 +568,8 @@ def gssapi_login():
     try:
         config_response = requests.get(f'{BACKEND_URL}/api/v1/auth/config')
         if config_response.status_code == 200:
-            config = config_response.json().get('config', {})
+            config_response_data = config_response.json()
+            config = config_response_data.get('data', {}).get('config', {}) if config_response_data.get('success') else {}
             if not config.get('auth', {}).get('gssapi_enabled', True):
                 flash('GSSAPI authentication is currently disabled', 'error')
                 return redirect(url_for('login'))
@@ -566,24 +602,23 @@ def gssapi_login():
     print(f"GSSAPI Auth: Backend response status: {response.status_code}")
     print(f"GSSAPI Auth: Backend response: {response.text}")
         
-    if response.status_code == 200:
-        data = response.json()
+    data = extract_api_data(response)
+        if data:
+            # Set session cookies for the authenticated user
+            session['access_token'] = data.get('access_token')
+            session['user'] = data.get('user')
+            session['is_admin'] = data.get('user', {}).get('is_admin')
             
-        # Set session cookies for the authenticated user
-        session['access_token'] = data['access_token']
-        session['user'] = data['user']
-        session['is_admin'] = data['user']['is_admin']
+            print(f"GSSAPI Auth: Session set - access_token: {bool(session.get('access_token'))}, user: {bool(session.get('user'))}, is_admin: {session.get('is_admin')}")
             
-        print(f"GSSAPI Auth: Session set - access_token: {bool(session.get('access_token'))}, user: {bool(session.get('user'))}, is_admin: {session.get('is_admin')}")
-            
-        # Redirect to dashboard on successful authentication
-        flash('GSSAPI authentication successful!', 'success')
-        return redirect(url_for('dashboard'))
-    else:
-        error_data = response.json()
-        print(f"GSSAPI Auth: Backend error: {error_data}")
-        flash(error_data.get('error', 'GSSAPI authentication failed'), 'error')
-        return redirect(url_for('login'))
+            # Redirect to dashboard on successful authentication
+            flash('GSSAPI authentication successful!', 'success')
+            return redirect(url_for('dashboard'))
+        else:
+            error_message = extract_api_data(response, 'error', default='GSSAPI authentication failed')
+            print(f"GSSAPI Auth: Backend error: {error_message}")
+            flash(error_message, 'error')
+            return redirect(url_for('login'))
     
 # GSSAPI Admin Routes
 @app.route('/admin/gssapi-realms')
@@ -597,9 +632,9 @@ def gssapi_realms():
             headers=headers
         )
         
-        if response.status_code == 200:
-            realms_data = response.json()
-            return render_template('gssapi_realms.html', realms=realms_data['realms'])
+        realms = extract_api_data(response, 'realms', default=[])
+        if realms:
+            return render_template('gssapi_realms.html', realms=realms)
         else:
             flash('Failed to load GSSAPI realms', 'error')
             return redirect(url_for('admin'))
@@ -650,8 +685,8 @@ def create_gssapi_realm():
         if response.status_code == 201:
             flash('GSSAPI realm created successfully', 'success')
         else:
-            error_data = response.json()
-            flash(f'Error: {error_data.get("error", "Unknown error")}', 'error')
+            error_message = extract_api_data(response, 'error', default='Unknown error')
+            flash(f'Error: {error_message}', 'error')
     except requests.RequestException:
         flash('Connection error', 'error')
     
@@ -700,8 +735,8 @@ def update_gssapi_realm(realm_id):
         if response.status_code == 200:
             flash('GSSAPI realm updated successfully', 'success')
         else:
-            error_data = response.json()
-            flash(f'Error: {error_data.get("error", "Unknown error")}', 'error')
+            error_message = extract_api_data(response, 'error', default='Unknown error')
+            flash(f'Error: {error_message}', 'error')
     except requests.RequestException:
         flash('Connection error', 'error')
     
@@ -722,8 +757,8 @@ def delete_gssapi_realm(realm_id):
         if response.status_code == 200:
             flash('GSSAPI realm deleted successfully', 'success')
         else:
-            error_data = response.json()
-            flash(f'Error: {error_data.get("error", "Unknown error")}', 'error')
+            error_message = extract_api_data(response, 'error', default='Unknown error')
+            flash(f'Error: {error_message}', 'error')
     except requests.RequestException:
         flash('Connection error', 'error')
     
@@ -765,9 +800,9 @@ def oauth_login(provider):
             params={'redirect_uri': redirect_uri}
         )
         
-        if response.status_code == 200:
-            auth_data = response.json()
-            return redirect(auth_data['authorization_url'])
+        auth_data = extract_api_data(response)
+        if auth_data:
+            return redirect(auth_data.get('authorization_url'))
         else:
             flash('Failed to initiate OAuth login', 'error')
             return redirect(url_for('login'))
@@ -821,16 +856,16 @@ def oauth_callback(provider):
             params={'code': code, 'redirect_uri': redirect_uri}
         )
         
-        if response.status_code == 200:
-            data = response.json()
-            session['access_token'] = data['access_token']
-            session['user'] = data['user']
-            session['is_admin'] = data['user']['is_admin']
+        data = extract_api_data(response)
+        if data:
+            session['access_token'] = data.get('access_token')
+            session['user'] = data.get('user')
+            session['is_admin'] = data.get('user', {}).get('is_admin')
             flash(f'Login successful with {provider.title()}!', 'success')
             return redirect(url_for('dashboard'))
         else:
-            error_data = response.json()
-            flash(f'OAuth error: {error_data.get("error", "Unknown error")}', 'error')
+            error_message = extract_api_data(response, 'error', default='Unknown error')
+            flash(f'OAuth error: {error_message}', 'error')
             return redirect(url_for('login'))
     except requests.RequestException:
         flash('Connection error', 'error')
@@ -865,15 +900,15 @@ def register():
             )
             
             if response.status_code == 201:
-                data = response.json()
-                session['access_token'] = data['access_token']
-                session['user'] = data['user']
-                session['is_admin'] = data['user']['is_admin']
+                data = extract_api_data(response)
+                session['access_token'] = data.get('access_token')
+                session['user'] = data.get('user')
+                session['is_admin'] = data.get('user', {}).get('is_admin')
                 flash('Registration successful!', 'success')
                 return redirect(url_for('dashboard'))
             else:
-                error_data = response.json()
-                flash(f'Registration error: {error_data.get("error", "Unknown error")}', 'error')
+                error_message = extract_api_data(response, 'error', default='Unknown error')
+                flash(f'Registration error: {error_message}', 'error')
         except requests.RequestException:
             flash('Connection error', 'error')
     
@@ -882,7 +917,8 @@ def register():
     try:
         config_response = requests.get(f'{BACKEND_URL}/api/v1/auth/config')
         if config_response.status_code == 200:
-            config = config_response.json().get('config', {})
+            config_response_data = config_response.json()
+            config = config_response_data.get('data', {}).get('config', {}) if config_response_data.get('success') else {}
             print(f"Register: Loaded configuration with OAuth enabled: {config.get('auth', {}).get('oauth_enabled', True)}")
             print(f"Register: Loaded configuration with GSSAPI enabled: {config.get('auth', {}).get('gssapi_enabled', True)}")
             if config.get('auth', {}).get('oauth_enabled', True) and config.get('oauth_providers'):
@@ -913,29 +949,25 @@ def account():
             headers=headers
         )
         
-        if response.status_code == 200:
-            account_data = response.json()
-            
+        account_data = extract_api_data(response)
+        if account_data:
             # Get available OAuth providers for linking from public config
             available_providers = []
             try:
                 config_response = requests.get(f'{BACKEND_URL}/api/v1/auth/config')
-                if config_response.status_code == 200:
-                    config = config_response.json().get('config', {})
-                    if config.get('auth', {}).get('oauth_enabled', True):
-                        oauth_providers = config.get('oauth_providers', [])
-                        # Filter out providers that are already connected
-                        connected_providers = {acc['provider'] for acc in account_data['user']['oauth_accounts']}
-                        available_providers = [p for p in oauth_providers if p['name'] not in connected_providers]
-                        print(f"Account: Found {len(available_providers)} available OAuth providers for linking")
-                else:
-                    print(f"Account: Failed to load configuration, status: {config_response.status_code}")
+                config = extract_api_data(config_response, 'config', default={})
+                if config.get('auth', {}).get('oauth_enabled', True):
+                    oauth_providers = config.get('oauth_providers', [])
+                    # Filter out providers that are already connected
+                    connected_providers = {acc['provider'] for acc in account_data.get('user', {}).get('oauth_accounts', [])}
+                    available_providers = [p for p in oauth_providers if p['name'] not in connected_providers]
+                    print(f"Account: Found {len(available_providers)} available OAuth providers for linking")
             except requests.RequestException as e:
                 print(f"Account: Connection error loading configuration: {e}")
                 # Fallback to empty list if config service is unavailable
             
             return render_template('account.html', 
-                                account=account_data['user'],
+                                account=account_data.get('user', {}),
                                 available_oauth_providers=available_providers)
         else:
             flash('Failed to load account information', 'error')
@@ -969,8 +1001,8 @@ def update_account():
             # Update session data
             session['user']['email'] = data['email']
         else:
-            error_data = response.json()
-            flash(f'Error: {error_data.get("error", "Unknown error")}', 'error')
+            error_message = extract_api_data(response, 'error', default='Unknown error')
+            flash(f'Error: {error_message}', 'error')
     except requests.RequestException:
         flash('Connection error', 'error')
     
@@ -991,8 +1023,8 @@ def remove_oauth_account(oauth_account_id):
         if response.status_code == 200:
             flash('OAuth account removed successfully', 'success')
         else:
-            error_data = response.json()
-            flash(f'Error: {error_data.get("error", "Unknown error")}', 'error')
+            error_message = extract_api_data(response, 'error', default='Unknown error')
+            flash(f'Error: {error_message}', 'error')
     except requests.RequestException:
         flash('Connection error', 'error')
     
@@ -1007,7 +1039,8 @@ def link_oauth_account(provider):
         # Check if OAuth is enabled and provider exists using public config
         config_response = requests.get(f'{BACKEND_URL}/api/v1/auth/config')
         if config_response.status_code == 200:
-            config = config_response.json().get('config', {})
+            config_response_data = config_response.json()
+            config = config_response_data.get('data', {}).get('config', {}) if config_response_data.get('success') else {}
             if not config.get('auth', {}).get('oauth_enabled', True):
                 flash('OAuth authentication is currently disabled', 'error')
                 return redirect(url_for('account'))
@@ -1041,9 +1074,9 @@ def link_oauth_account(provider):
             params={'redirect_uri': redirect_uri}
         )
         
-        if response.status_code == 200:
-            auth_data = response.json()
-            return redirect(auth_data['authorization_url'])
+        auth_data = extract_api_data(response)
+        if auth_data:
+            return redirect(auth_data.get('authorization_url'))
         else:
             flash('Failed to initiate OAuth linking', 'error')
             return redirect(url_for('account'))
@@ -1081,8 +1114,8 @@ def link_oauth_callback(provider):
         if response.status_code == 200:
             flash(f'Successfully linked {provider.title()} to your account!', 'success')
         else:
-            error_data = response.json()
-            flash(f'OAuth linking error: {error_data.get("error", "Unknown error")}', 'error')
+            error_message = extract_api_data(response, 'error', default='Unknown error')
+            flash(f'OAuth linking error: {error_message}', 'error')
     except requests.RequestException:
         flash('Connection error', 'error')
     
