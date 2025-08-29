@@ -56,17 +56,54 @@ class DaftGilaClient:
             default_headers=default_headers or {}
         )
         
-        # Initialize specialized clients
-        self.auth = AuthClient(self.http)
-        self.admin = AdminClient(self.http)
-        self.gssapi = GSSAPIClient(self.http)
-        self.jwt = JWTClient(self.http)
-        self.config = ConfigClient(self.http)
+        # Specialized clients will be created lazily when accessed
+        self._auth = None
+        self._admin = None
+        self._gssapi = None
+        self._jwt = None
+        self._config = None
         
         # Store configuration
         self.base_url = base_url
         self.timeout = timeout
         self.verify_ssl = verify_ssl
+    
+    # Lazy-loaded specialized clients
+    
+    @property
+    def auth(self) -> AuthClient:
+        """Lazy-loaded authentication client."""
+        if self._auth is None:
+            self._auth = AuthClient(self.http)
+        return self._auth
+    
+    @property
+    def admin(self) -> AdminClient:
+        """Lazy-loaded admin client."""
+        if self._admin is None:
+            self._admin = AdminClient(self.http)
+        return self._admin
+    
+    @property
+    def gssapi(self) -> GSSAPIClient:
+        """Lazy-loaded GSSAPI client."""
+        if self._gssapi is None:
+            self._gssapi = GSSAPIClient(self.http)
+        return self._gssapi
+    
+    @property
+    def jwt(self) -> JWTClient:
+        """Lazy-loaded JWT client."""
+        if self._jwt is None:
+            self._jwt = JWTClient(self.http)
+        return self._jwt
+    
+    @property
+    def config(self) -> ConfigClient:
+        """Lazy-loaded configuration client."""
+        if self._config is None:
+            self._config = ConfigClient(self.http)
+        return self._config
     
     # General API Methods
     
@@ -192,7 +229,42 @@ class DaftGilaClient:
     
     def close(self) -> None:
         """Close the client and clean up resources."""
+        # Close HTTP client
         self.http.close()
+        
+        # Clear cached specialized clients
+        self.clear_client_cache()
+    
+    def clear_client_cache(self) -> None:
+        """Clear all cached specialized clients."""
+        self._auth = None
+        self._admin = None
+        self._gssapi = None
+        self._jwt = None
+        self._config = None
+    
+    def is_client_initialized(self, client_name: str) -> bool:
+        """
+        Check if a specific specialized client has been initialized.
+        
+        Args:
+            client_name: Name of the client to check ('auth', 'admin', 'gssapi', 'jwt', 'config')
+            
+        Returns:
+            True if the client has been initialized, False otherwise
+        """
+        client_map = {
+            'auth': self._auth,
+            'admin': self._admin,
+            'gssapi': self._gssapi,
+            'jwt': self._jwt,
+            'config': self._config
+        }
+        
+        if client_name not in client_map:
+            raise ValueError(f"Unknown client name: {client_name}")
+        
+        return client_map[client_name] is not None
     
     # Utility Methods
     
@@ -209,7 +281,14 @@ class DaftGilaClient:
             'verify_ssl': self.verify_ssl,
             'is_authenticated': self.is_authenticated(),
             'default_headers': self.get_default_headers(),
-            'auth_token_present': bool(self.get_auth_token())
+            'auth_token_present': bool(self.get_auth_token()),
+            'clients_initialized': {
+                'auth': self._auth is not None,
+                'admin': self._admin is not None,
+                'gssapi': self._gssapi is not None,
+                'jwt': self._jwt is not None,
+                'config': self._config is not None
+            }
         }
     
     def ping(self) -> bool:
