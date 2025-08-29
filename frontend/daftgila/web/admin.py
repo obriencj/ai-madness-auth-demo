@@ -24,7 +24,7 @@ from .utils import BACKEND_URL, extract_api_data
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 
 # Import decorators from auth package
-from .auth.core import admin_required
+from .auth import admin_required
 
 @admin_bp.route('/')
 @admin_required

@@ -21,7 +21,7 @@ from .utils import BACKEND_URL, extract_api_data
 user_bp = Blueprint('user', __name__, url_prefix='/account')
 
 # Import decorators from auth package
-from .auth.core import login_required
+from .auth import login_required
 
 @user_bp.route('/')
 @login_required
