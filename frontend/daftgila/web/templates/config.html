@@ -48,6 +48,27 @@
                         <div class="card-body">
                             <!-- Read-only Configuration Display -->
                             <div id="configDisplay">
+                                <!-- App Configuration -->
+                                <div class="row mb-4">
+                                    <div class="col-12">
+                                        <h6 class="text-primary border-bottom pb-2">
+                                            <i class="fas fa-cog me-2"></i>Application Settings
+                                        </h6>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label fw-bold">Site Name:</label>
+                                            <span id="site-name-display" class="ms-2"></span>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label fw-bold">Contact Email:</label>
+                                            <span id="contact-email-display" class="ms-2"></span>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <!-- Authentication Settings -->
                                 <div class="row mb-4">
                                     <div class="col-12">
@@ -167,6 +188,29 @@
 
                             <!-- Editable Configuration Form -->
                             <form id="configForm" style="display: none;">
+                                <!-- App Configuration -->
+                                <div class="row mb-4">
+                                    <div class="col-12">
+                                        <h6 class="text-primary border-bottom pb-2">
+                                            <i class="fas fa-cog me-2"></i>Application Settings
+                                        </h6>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="site-name" class="form-label">Site Name:</label>
+                                            <input type="text" class="form-control" id="site-name" name="site-name" required>
+                                            <div class="form-text">Display name for the application</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="contact-email" class="form-label">Contact Email:</label>
+                                            <input type="email" class="form-control" id="contact-email" name="contact-email" required>
+                                            <div class="form-text">Contact email for support inquiries</div>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <!-- Authentication Settings -->
                                 <div class="row mb-4">
                                     <div class="col-12">
@@ -548,6 +592,10 @@ async function loadCurrentConfiguration() {
 
 // Display configuration in read-only mode
 function displayConfiguration(config) {
+    // App settings
+    document.getElementById('site-name-display').textContent = config.app?.site_name || 'Daft Gila';
+    document.getElementById('contact-email-display').textContent = config.app?.contact_email || 'support@example.com';
+    
     // Authentication settings
     document.getElementById('jwt-lifetime-display').textContent = config.auth?.jwt_lifetime_hours || 1;
     document.getElementById('allow-registration-display').textContent = config.auth?.allow_user_registration ? 'Enabled' : 'Disabled';
@@ -591,6 +639,10 @@ function toggleEditMode() {
 function populateEditForm() {
     const config = currentConfig;
     
+    // App settings
+    document.getElementById('site-name').value = config.app?.site_name || 'Daft Gila';
+    document.getElementById('contact-email').value = config.app?.contact_email || 'support@example.com';
+    
     // Authentication settings
     document.getElementById('jwt-lifetime').value = config.auth?.jwt_lifetime_hours || 1;
     document.getElementById('allow-registration').checked = config.auth?.allow_user_registration || false;
@@ -628,6 +680,10 @@ document.getElementById('configForm').addEventListener('submit', async function(
     
     const formData = new FormData(e.target);
     const configData = {
+        app: {
+            site_name: formData.get('site-name'),
+            contact_email: formData.get('contact-email')
+        },
         auth: {
             jwt_lifetime_hours: parseInt(formData.get('jwt-lifetime')),
             allow_user_registration: formData.get('allow-registration') === 'on',
