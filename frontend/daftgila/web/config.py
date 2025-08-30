@@ -57,7 +57,9 @@ def update_config():
     """Update system configuration (admin only)"""
     try:
         data = request.get_json()
-        
+        print(f"Update config: {data}")
+        print(f"Update config: {data['config_data']}")
+
         if not data or 'config_data' not in data:
             return jsonify({
                 'success': False,
@@ -71,7 +73,7 @@ def update_config():
             }), 400
         
         # Update the configuration using the backend API
-        response = g.client.config.update(data['config_data'])
+        response = g.client.config.update(data)
         
         if response.is_success:
             return jsonify({

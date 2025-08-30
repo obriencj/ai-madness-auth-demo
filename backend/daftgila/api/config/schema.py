@@ -84,9 +84,21 @@ class SecurityConfig(BaseModel):
         description="Require strong password (complexity rules)"
     )
 
+class AppConfig(BaseModel):
+    """Application configuration settings."""
+    site_name: str = Field(
+        default="Daft Gila",
+        description="Application name"
+    )
+    contact_email: str = Field(
+        default="support@example.com",
+        description="Contact email address"
+    )
 
 class SystemConfig(BaseModel):
     """Complete system configuration schema."""
+
+    app: AppConfig
     auth: AuthConfig
     oauth: OAuthConfig
     gssapi: GSSAPIConfig

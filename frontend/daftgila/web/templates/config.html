@@ -533,7 +533,7 @@ async function loadCurrentConfiguration() {
         if (response.ok) {
             const data = await response.json();
             if (data.success) {
-                currentConfig = data.data.config;
+                currentConfig = data.data.config_data;
                 displayConfiguration(currentConfig);
             } else {
                 showError('Configuration Error', data.message || 'Failed to load configuration');

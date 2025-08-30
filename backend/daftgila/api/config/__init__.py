@@ -142,8 +142,8 @@ def update_config():
             return error_response('Missing config_data', 400)
         
         # Validate configuration against schema
-        from .schema import validate_config_data
-        is_valid, error_message, validated_config = validate_config_data(data['config_data'])
+        from .schema import validate_config
+        is_valid, error_message, validated_config = validate_config(data['config_data'])
         if not is_valid:
             return error_response(error_message, 400)
         
@@ -197,7 +197,7 @@ def get_config_versions():
         
         return success_response(
             'Configuration versions retrieved successfully',
-            {'configurations': config_data}
+            {'versions': config_data}
         )
     except Exception as e:
         return error_response(f'Failed to retrieve versions: {str(e)}', 500)
