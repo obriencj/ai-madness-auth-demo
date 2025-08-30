@@ -9,9 +9,12 @@ Assisted-By: Claude Sonnet 4 (AI Assistant)
 License: GNU General Public License v3.0
 """
 
+import re
 from functools import wraps
 from flask import request, jsonify
 from .model import User
+from .jwt import get_jwt_identity
+from .audit import log_action, AuditActions
 
 
 def generate_unique_username(base_username):
@@ -71,8 +74,6 @@ def admin_required(f):
     """
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        from .jwt import get_jwt_identity
-        
         current_username = get_jwt_identity()
         current_user = User.query.filter_by(username=current_username).first()
         
@@ -97,9 +98,6 @@ def admin_required_with_audit(action, resource_type=None):
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
-            from .jwt import get_jwt_identity
-            from .audit import log_action, AuditActions
-            
             current_username = get_jwt_identity()
             current_user = User.query.filter_by(username=current_username).first()
             
@@ -141,8 +139,6 @@ def get_current_user():
     Returns:
         User: The current user object, or None if not authenticated
     """
-    from .jwt import get_jwt_identity
-    
     current_username = get_jwt_identity()
     if not current_username:
         return None
@@ -181,7 +177,6 @@ def validate_email_format(email):
     Returns:
         bool: True if email format is valid
     """
-    import re
     pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     return re.match(pattern, email) is not None
 
@@ -196,7 +191,6 @@ def validate_username_format(username):
     Returns:
         bool: True if username format is valid
     """
-    import re
     pattern = r'^[a-zA-Z0-9._-]+$'
     return re.match(pattern, username) is not None
 

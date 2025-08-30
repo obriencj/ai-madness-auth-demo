@@ -17,10 +17,10 @@ import os
 from datetime import datetime
 from flask import Blueprint, request
 from flask_jwt_extended import jwt_required
-from ..model import db, AppConfigVersion
+from ..model import db, AppConfigVersion, OAuthProvider, GSSAPIRealm
 from ..utils import admin_required, get_current_user, success_response, error_response
 from ..audit import log_config_action, AuditActions
-from .schema import SystemConfig
+from .schema import SystemConfig, get_schema_info, validate_config
 
 # Create configuration blueprints
 config_bp = Blueprint('config', __name__, url_prefix='/api/v1/admin/config')
@@ -116,7 +116,6 @@ def get_active_config_endpoint():
 def get_config_schema():
     """Get configuration schema information (admin only)."""
     try:
-        from .schema import get_schema_info
         schema_info = get_schema_info()
         
         return success_response(
@@ -142,7 +141,6 @@ def update_config():
             return error_response('Missing config_data', 400)
         
         # Validate configuration against schema
-        from .schema import validate_config
         is_valid, error_message, validated_config = validate_config(data['config_data'])
         if not is_valid:
             return error_response(error_message, 400)
@@ -336,7 +334,6 @@ def get_public_config():
         config = get_active_config()
         
         # Get currently enabled OAuth providers
-        from ..model import OAuthProvider
         oauth_providers = []
         if config.get('oauth', {}).get('enabled', False):
             providers = OAuthProvider.query.filter_by(is_active=True, is_deleted=False).all()
@@ -351,7 +348,6 @@ def get_public_config():
             ]
         
         # Get currently enabled GSSAPI realms
-        from ..model import GSSAPIRealm
         gssapi_realms = []
         if config.get('gssapi', {}).get('enabled', False):
             realms = GSSAPIRealm.query.filter_by(is_active=True, is_deleted=False).all()

@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 from flask import request, Blueprint
 from flask_jwt_extended import (
     JWTManager, create_access_token, jwt_required, get_jwt_identity,
-    get_jwt, verify_jwt_in_request
+    get_jwt, verify_jwt_in_request, decode_token
 )
 from .model import db, JWTSession, User
 from .utils import success_response, error_response, get_current_user
@@ -145,7 +145,6 @@ def refresh_token():
         new_access_token = create_access_token(identity=current_user.username)
         
         # Get JTI from the new token
-        from flask_jwt_extended import decode_token
         token_data = decode_token(new_access_token)
         jti = token_data['jti']
         

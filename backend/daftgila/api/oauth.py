@@ -15,10 +15,11 @@ License: GNU General Public License v3.0
 
 import requests
 from flask import session, request, Blueprint
-from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, decode_token
 from .model import db, User, OAuthProvider, OAuthAccount
 from .utils import generate_unique_username, success_response, error_response, format_user_response
 from .audit import log_oauth_action, AuditActions
+from .jwt import create_jwt_session
 
 # Create OAuth blueprint
 oauth_bp = Blueprint('oauth', __name__, url_prefix='/api/v1/auth/oauth')
@@ -272,12 +273,10 @@ def oauth_callback(provider):
     access_token = create_access_token(identity=user.username)
     
     # Get JTI from the token and create session record
-    from flask_jwt_extended import decode_token
     token_data_jwt = decode_token(access_token)
     jti = token_data_jwt['jti']
     
     # Create session record
-    from .jwt import create_jwt_session
     create_jwt_session(jti, user.id, f'oauth_{provider}')
 
     # Store OAuth account information

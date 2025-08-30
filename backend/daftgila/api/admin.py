@@ -22,6 +22,7 @@ from .audit import (
     log_user_action, log_oauth_action, log_gssapi_action,
     log_config_action, log_session_action, AuditActions
 )
+from .config import get_active_config as get_config, get_default_config
 
 # Create admin blueprint
 admin_bp = Blueprint('admin', __name__, url_prefix='/api/v1/admin')
@@ -511,8 +512,6 @@ def expire_all_sessions():
 def get_active_config():
     """Get the currently active configuration (admin only)."""
     try:
-        from .config import get_active_config as get_config, get_default_config
-        
         config_data = get_config()
         if not config_data:
             return error_response('No active configuration found', 404)

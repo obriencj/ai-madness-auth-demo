@@ -16,7 +16,7 @@ import os
 import base64
 import gssapi
 from flask import request, Blueprint
-from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, decode_token
 from .model import db, User, GSSAPIRealm, GSSAPIAccount
 from .jwt import create_jwt_session
 from .utils import success_response, error_response, format_user_response, generate_unique_username
@@ -173,7 +173,6 @@ def gssapi_authenticate():
     access_token = create_access_token(identity=user.username)
     
     # Get JTI from the token and create session record
-    from flask_jwt_extended import decode_token
     token_data = decode_token(access_token)
     jti = token_data['jti']
     

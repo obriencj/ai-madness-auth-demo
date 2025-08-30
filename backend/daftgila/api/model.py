@@ -10,7 +10,7 @@ License: GNU General Public License v3.0
 
 import bcrypt
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy import CheckConstraint, Index
 
 # Initialize SQLAlchemy instance (will be configured in app.py)
@@ -75,7 +75,6 @@ class User(db.Model):
         """Increment failed login attempts and lock account if threshold exceeded."""
         self.login_attempts += 1
         if self.login_attempts >= 5:  # Lock after 5 failed attempts
-            from datetime import timedelta
             self.locked_until = datetime.utcnow() + timedelta(minutes=30)
 
     def reset_login_attempts(self):

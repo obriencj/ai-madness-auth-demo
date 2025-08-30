@@ -12,6 +12,11 @@ License: GNU General Public License v3.0
 import os
 from flask import Flask, session, g
 from .client_factory import get_client_from_session
+from .auth import auth_bp, oauth_bp, gssapi_bp
+from .admin import admin_bp
+from .config import config_bp
+from .user import user_bp
+from .dashboard import dashboard_bp
 
 def create_app():
     """Create and configure the Flask application"""
@@ -24,12 +29,6 @@ def create_app():
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
     
     # Register blueprints
-    from .auth import auth_bp, oauth_bp, gssapi_bp
-    from .admin import admin_bp
-    from .config import config_bp
-    from .user import user_bp
-    from .dashboard import dashboard_bp
-    
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(config_bp)
