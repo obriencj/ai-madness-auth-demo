@@ -12,7 +12,7 @@
                 </div>
                 <div class="card-body">
                     <!-- GSSAPI Login Button -->
-                    {% if config.auth and config.auth.gssapi_enabled and config.gssapi_realms %}
+                    {% if config.gssapi and config.gssapi.enabled and config.gssapi.realms %}
                     <div class="mb-4">
                         <div class="d-grid">
                             <a href="{{ url_for('auth.gssapi_login') }}" class="btn btn-outline-primary">
@@ -26,11 +26,11 @@
                     {% endif %}
                     
                     <!-- OAuth Login Options -->
-                    {% if config.auth and config.auth.oauth_enabled and config.oauth_providers %}
+                    {% if config.oauth and config.oauth.enabled and config.oauth.providers %}
                     <div class="mb-4">
                         <p class="text-center text-muted">Or sign in with:</p>
                         <div class="d-grid gap-2">
-                            {% for provider in config.oauth_providers %}
+                            {% for provider in config.oauth.providers %}
                             <a href="{{ url_for('auth.oauth_login', provider=provider.name) }}" 
                                class="btn btn-outline-dark"
                                style="border-color: {{ provider.color }}; color: {{ provider.color }};">

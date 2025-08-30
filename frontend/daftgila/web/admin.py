@@ -182,64 +182,198 @@ def expire_all_sessions():
 @admin_required
 def config_management():
     """Configuration management page"""
+    return render_template('config.html')
+
+
+@admin_bp.route('/api/config/active', methods=['GET'])
+@admin_required
+def get_active_config():
+    """Get the currently active configuration (admin only)"""
     try:
-        # Use injected client instead of direct requests
         response = g.client.config.get_active()
         
         if response.is_success:
-            config_data = response.data
+            return jsonify({
+                'success': True,
+                'data': response.data
+            })
         else:
-            config_data = {}
-            flash(f'Error fetching configuration: {response.message}', 'error')
+            return jsonify({
+                'success': False,
+                'message': response.message or 'Failed to retrieve configuration'
+            }), 400
             
     except Exception as e:
-        config_data = {}
-        flash(f'Connection error: {str(e)}', 'error')
-    
-    # Get configuration versions
-    try:
-        versions_response = g.client.config.get_versions()
-        
-        if versions_response.is_success:
-            versions = versions_response.data.get('config_versions', [])
-        else:
-            versions = []
-            flash(f'Error fetching configuration versions: {versions_response.message}', 'error')
-            
-    except Exception as e:
-        versions = []
-        flash(f'Connection error: {str(e)}', 'error')
-    
-    return render_template('config.html', config=config_data, versions=versions)
+        return jsonify({
+            'success': False,
+            'message': f'Connection error: {str(e)}'
+        }), 500
 
 
-@admin_bp.route('/api/config', methods=['POST'])
+@admin_bp.route('/api/config/update', methods=['POST'])
 @admin_required
 def update_config():
-    """Update system configuration"""
+    """Update system configuration (admin only)"""
     try:
         data = request.get_json()
         
         if not data or 'config_data' not in data:
-            flash('Invalid configuration data', 'error')
-            return jsonify({'error': 'Invalid configuration data'}), 400
+            return jsonify({
+                'success': False,
+                'message': 'Missing configuration data'
+            }), 400
         
-        # Use injected client instead of direct requests
+        if not data.get('description'):
+            return jsonify({
+                'success': False,
+                'message': 'Description is required for configuration changes'
+            }), 400
+        
+        # Update the configuration using the backend API
         response = g.client.config.update(data['config_data'])
         
         if response.is_success:
-            # Create a new configuration version if description is provided
-            if data.get('description'):
-                # Note: This would require a separate endpoint for creating config versions
-                # For now, we'll just update the config
-                pass
-            
-            return jsonify({'message': 'Configuration updated successfully'}), 200
+            return jsonify({
+                'success': True,
+                'message': 'Configuration updated successfully',
+                'data': response.data
+            })
         else:
-            return jsonify({'error': response.message or 'Failed to update configuration'}), 400
+            return jsonify({
+                'success': False,
+                'message': response.message or 'Failed to update configuration'
+            }), 400
             
     except Exception as e:
-        return jsonify({'error': f'Connection error: {str(e)}'}), 500
+        return jsonify({
+            'success': False,
+            'message': f'Connection error: {str(e)}'
+        }), 500
+
+
+@admin_bp.route('/api/config/versions', methods=['GET'])
+@admin_required
+def get_config_versions():
+    """Get all configuration versions (admin only)"""
+    try:
+        response = g.client.config.get_versions()
+        
+        if response.is_success:
+            return jsonify({
+                'success': True,
+                'data': response.data
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': response.message or 'Failed to retrieve configuration versions'
+            }), 400
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Connection error: {str(e)}'
+        }), 500
+
+
+@admin_bp.route('/api/config/versions/<int:version_id>', methods=['GET'])
+@admin_required
+def get_config_version(version_id):
+    """Get a specific configuration version (admin only)"""
+    try:
+        response = g.client.config.get_version(version_id)
+        
+        if response.is_success:
+            return jsonify({
+                'success': True,
+                'data': response.data
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': response.message or 'Failed to retrieve configuration version'
+            }), 400
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Connection error: {str(e)}'
+        }), 500
+
+
+@admin_bp.route('/api/config/versions/<int:version_id>/activate', methods=['POST'])
+@admin_required
+def activate_config_version(version_id):
+    """Activate a configuration version (admin only)"""
+    try:
+        response = g.client.config.activate_version(version_id)
+        
+        if response.is_success:
+            return jsonify({
+                'success': True,
+                'message': 'Configuration version activated successfully'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': response.message or 'Failed to activate configuration version'
+            }), 400
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Connection error: {str(e)}'
+        }), 500
+
+
+@admin_bp.route('/api/config/cache/status', methods=['GET'])
+@admin_required
+def get_cache_status():
+    """Get configuration cache status (admin only)"""
+    try:
+        response = g.client.config.get_cache_status()
+        
+        if response.is_success:
+            return jsonify({
+                'success': True,
+                'data': response.data
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': response.message or 'Failed to retrieve cache status'
+            }), 400
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Connection error: {str(e)}'
+        }), 500
+
+
+@admin_bp.route('/api/config/cache/refresh', methods=['POST'])
+@admin_required
+def refresh_config_cache():
+    """Refresh configuration cache (admin only)"""
+    try:
+        response = g.client.config.refresh_cache()
+        
+        if response.is_success:
+            return jsonify({
+                'success': True,
+                'message': 'Configuration cache refreshed successfully'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': response.message or 'Failed to refresh cache'
+            }), 400
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Connection error: {str(e)}'
+        }), 500
 
 
 @admin_bp.route('/oauth-providers')

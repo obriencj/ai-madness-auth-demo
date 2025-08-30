@@ -27,7 +27,7 @@
                     {% endif %}
                     
                     <!-- GSSAPI Authentication Info -->
-                    {% if config.auth and config.auth.gssapi_enabled and config.gssapi_realms %}
+                    {% if config.gssapi and config.gssapi.enabled and config.gssapi.realms %}
                     <div class="mb-4">
                         <div class="alert alert-info">
                             <h6 class="alert-heading">
@@ -36,7 +36,7 @@
                             <p class="mb-2">This application supports GSSAPI/Kerberos authentication.</p>
                             <p class="mb-0 small">
                                 <strong>Available Realms:</strong><br>
-                                {% for realm in config.gssapi_realms %}
+                                {% for realm in config.gssapi.realms %}
                                 • {{ realm.display_name }} ({{ realm.realm }}){% if realm.default_realm %} - Default{% endif %}<br>
                                 {% endfor %}
                             </p>
@@ -48,11 +48,11 @@
                     {% endif %}
                     
                     <!-- OAuth Login Options -->
-                    {% if config.auth and config.auth.oauth_enabled and config.oauth_providers %}
+                    {% if config.oauth and config.oauth.enabled and config.oauth.providers %}
                     <div class="mb-4">
                         <p class="text-center text-muted">Or sign up with:</p>
                         <div class="d-grid gap-2">
-                            {% for provider in config.oauth_providers %}
+                            {% for provider in config.oauth.providers %}
                             <a href="{{ url_for('auth.oauth_login', provider=provider.name) }}" 
                                class="btn btn-outline-dark"
                                style="border-color: {{ provider.color }}; color: {{ provider.color }};">
@@ -62,7 +62,7 @@
                             {% endfor %}
                         </div>
                     </div>
-                    {% elif config.auth and config.auth.oauth_enabled %}
+                    {% elif config.oauth and config.oauth.enabled %}
                     <div class="mb-4">
                         <div class="text-center">
                             <small class="text-muted">

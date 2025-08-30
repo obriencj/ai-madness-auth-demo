@@ -17,9 +17,9 @@ import os
 from datetime import datetime
 from flask import Blueprint, request
 from flask_jwt_extended import jwt_required
-from .model import db, AppConfigVersion
-from .utils import admin_required, get_current_user, success_response, error_response
-from .audit import log_config_action, AuditActions
+from ..model import db, AppConfigVersion
+from ..utils import admin_required, get_current_user, success_response, error_response
+from ..audit import log_config_action, AuditActions
 from .schema import SystemConfig
 
 # Create configuration blueprints
@@ -335,17 +335,51 @@ def get_public_config():
     try:
         config = get_active_config()
         
+        # Get currently enabled OAuth providers
+        from ..model import OAuthProvider
+        oauth_providers = []
+        if config.get('oauth', {}).get('enabled', False):
+            providers = OAuthProvider.query.filter_by(is_active=True, is_deleted=False).all()
+            oauth_providers = [
+                {
+                    'name': provider.name,
+                    'display_name': provider.name.title(),  # Capitalize first letter
+                    'icon': 'fab fa-' + provider.name.lower(),  # FontAwesome icon class
+                    'color': '#000000'  # Default color
+                }
+                for provider in providers
+            ]
+        
+        # Get currently enabled GSSAPI realms
+        from ..model import GSSAPIRealm
+        gssapi_realms = []
+        if config.get('gssapi', {}).get('enabled', False):
+            realms = GSSAPIRealm.query.filter_by(is_active=True, is_deleted=False).all()
+            gssapi_realms = [
+                {
+                    'name': realm.name,
+                    'realm': realm.realm,
+                    'display_name': realm.name,
+                    'default_realm': realm.default_realm
+                }
+                for realm in realms
+            ]
+        
         # Only return public configuration values
         public_config = {
             'auth': {
                 'allow_user_registration': config.get('auth', {}).get('allow_user_registration', True),
-                'allow_user_login': config.get('auth', {}).get('allow_user_login', True)
+                'allow_user_login': config.get('auth', {}).get('allow_user_login', True),
+                'oauth_enabled': config.get('oauth', {}).get('enabled', False),
+                'gssapi_enabled': config.get('gssapi', {}).get('enabled', False)
             },
             'oauth': {
-                'enabled_providers': config.get('oauth', {}).get('enabled_providers', [])
+                'enabled': config.get('oauth', {}).get('enabled', False),
+                'providers': oauth_providers
             },
             'gssapi': {
-                'enabled': config.get('gssapi', {}).get('enabled', True)
+                'enabled': config.get('gssapi', {}).get('enabled', False),
+                'realms': gssapi_realms
             }
         }
         

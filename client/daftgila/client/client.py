@@ -231,40 +231,12 @@ class DaftGilaClient:
         """Close the client and clean up resources."""
         # Close HTTP client
         self.http.close()
-        
-        # Clear cached specialized clients
-        self.clear_client_cache()
-    
-    def clear_client_cache(self) -> None:
-        """Clear all cached specialized clients."""
+     
         self._auth = None
         self._admin = None
         self._gssapi = None
         self._jwt = None
         self._config = None
-    
-    def is_client_initialized(self, client_name: str) -> bool:
-        """
-        Check if a specific specialized client has been initialized.
-        
-        Args:
-            client_name: Name of the client to check ('auth', 'admin', 'gssapi', 'jwt', 'config')
-            
-        Returns:
-            True if the client has been initialized, False otherwise
-        """
-        client_map = {
-            'auth': self._auth,
-            'admin': self._admin,
-            'gssapi': self._gssapi,
-            'jwt': self._jwt,
-            'config': self._config
-        }
-        
-        if client_name not in client_map:
-            raise ValueError(f"Unknown client name: {client_name}")
-        
-        return client_map[client_name] is not None
     
     # Utility Methods
     
@@ -282,14 +254,7 @@ class DaftGilaClient:
             'is_authenticated': self.is_authenticated(),
             'default_headers': self.get_default_headers(),
             'auth_token_present': bool(self.get_auth_token()),
-            'clients_initialized': {
-                'auth': self._auth is not None,
-                'admin': self._admin is not None,
-                'gssapi': self._gssapi is not None,
-                'jwt': self._jwt is not None,
-                'config': self._config is not None
             }
-        }
     
     def ping(self) -> bool:
         """

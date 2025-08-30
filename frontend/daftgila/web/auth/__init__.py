@@ -90,24 +90,18 @@ def login():
         except Exception as e:
             flash(f'Connection error: {str(e)}', 'error')
     
-    # Get configuration to check if OAuth and GSSAPI are enabled
+    # Get configuration to check if registration is allowed and get OAuth providers
     config = {}
     try:
         # Use injected client instead of direct requests
         config_response = g.client.test()
         if config_response.is_success:
-            # For now, we'll use a simple approach to get config
-            # In a real implementation, you might want to add a config endpoint
-            config = {
-                'auth': {
-                    'oauth_enabled': True,
-                    'gssapi_enabled': True
-                },
-                'oauth_providers': [],
-                'gssapi_realms': []
-            }
-        print(f"Login: Loaded configuration with OAuth enabled: {config.get('auth', {}).get('oauth_enabled', True)}")
-        print(f"Login: Loaded configuration with GSSAPI enabled: {config.get('auth', {}).get('gssapi_enabled', True)}")
+            # Fetch public configuration using the DaftGila client
+            public_config_response = g.client.config.get_public()
+            if public_config_response.is_success:
+                config = public_config_response.data.get('config', {})
+        print(f"Login: Loaded configuration with OAuth enabled: {config.get('oauth', {}).get('enabled', False)}")
+        print(f"Login: Loaded configuration with GSSAPI enabled: {config.get('gssapi', {}).get('enabled', False)}")
     except Exception as e:
         print(f"Login: Connection error loading configuration: {e}")
         pass  # Use default values if config service is unavailable
@@ -185,22 +179,16 @@ def register():
         # Use injected client instead of direct requests
         config_response = g.client.test()
         if config_response.is_success:
-            # For now, we'll use a simple approach to get config
-            # In a real implementation, you might want to add a config endpoint
-            config = {
-                'auth': {
-                    'oauth_enabled': True,
-                    'gssapi_enabled': True
-                },
-                'oauth_providers': [],
-                'gssapi_realms': []
-            }
-        print(f"Register: Loaded configuration with OAuth enabled: {config.get('auth', {}).get('oauth_enabled', True)}")
-        print(f"Register: Found {len(config['oauth_providers'])} OAuth providers in config")
-        if config.get('auth', {}).get('gssapi_enabled', True) and config.get('gssapi_realms'):
-            print(f"Register: Found {len(config['gssapi_realms'])} GSSAPI realms in config")
+            # Fetch public configuration using the DaftGila client
+            public_config_response = g.client.config.get_public()
+            if public_config_response.is_success:
+                config = public_config_response.data.get('config', {})
+        print(f"Register: Loaded configuration with OAuth enabled: {config.get('oauth', {}).get('enabled', False)}")
+        print(f"Register: Found {len(config.get('oauth', {}).get('providers', []))} OAuth providers in config")
+        if config.get('gssapi', {}).get('enabled', False) and config.get('gssapi', {}).get('realms'):
+            print(f"Register: Found {len(config['gssapi']['realms'])} GSSAPI realms in config")
         else:
-            print(f"Register: GSSAPI realms in config: {config['gssapi_realms']}")
+            print(f"Register: GSSAPI realms in config: {config.get('gssapi', {}).get('realms', [])}")
     except Exception as e:
         print(f"Register: Connection error loading configuration: {e}")
         pass  # Use default values if config service is unavailable
