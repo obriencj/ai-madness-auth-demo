@@ -26,11 +26,13 @@ def create_app():
     # Register blueprints
     from .auth import auth_bp, oauth_bp, gssapi_bp
     from .admin import admin_bp
+    from .config import config_bp
     from .user import user_bp
     from .dashboard import dashboard_bp
     
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp)
+    app.register_blueprint(config_bp)
     app.register_blueprint(user_bp)
     app.register_blueprint(dashboard_bp)
     
