@@ -17,7 +17,7 @@
                     <!-- Profile Information -->
                     <div class="mb-4">
                         <h5 class="card-title">Profile Information</h5>
-                        <form method="POST" action="{{ url_for('update_account') }}">
+                        <form method="POST" action="{{ url_for('user.update_account') }}">
                             <div class="row">
                                 <div class="col-md-6 mb-3">
                                     <label for="username" class="form-label">Username</label>
@@ -154,7 +154,7 @@
                                             </td>
                                             <td>
                                                 <form method="POST" 
-                                                      action="{{ url_for('remove_oauth_account', oauth_account_id=oauth_account.id) }}"
+                                                      action="{{ url_for('user.remove_oauth_account', oauth_account_id=oauth_account.id) }}"
                                                       class="d-inline"
                                                       onsubmit="return confirm('Are you sure you want to remove this OAuth account?')">
                                                     <button type="submit" class="btn btn-sm btn-outline-danger">
@@ -202,7 +202,7 @@
                         </p>
                         <div class="d-grid gap-2">
                             {% for provider in available_oauth_providers %}
-                            <a href="{{ url_for('link_oauth_account', provider=provider.name) }}" 
+                            <a href="{{ url_for('user.link_oauth_account', provider=provider.name) }}" 
                                class="btn btn-outline-primary"
                                style="border-color: {{ provider.color }}; color: {{ provider.color }};">
                                 <i class="{{ provider.icon }} me-2"></i>
@@ -247,7 +247,7 @@
                 
                 <div class="card-footer">
                     <div class="d-flex justify-content-between align-items-center">
-                        <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
+                        <a href="{{ url_for('dashboard.dashboard') }}" class="btn btn-outline-secondary">
                             <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
                         </a>
                         <small class="text-muted">

@@ -15,6 +15,8 @@ License: GNU General Public License v3.0
 import os
 import sys
 import requests
+from gilla_auth.api.model import db, GSSAPIRealm
+from gilla_auth.api.config import ConfigService
 
 # Add the current directory to Python path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -31,8 +33,6 @@ def test_database_connection():
     print("=== Testing Database Connection ===")
     
     try:
-        from gilla_auth.api.model import db, GSSAPIRealm
-        
         # Initialize database
         db.init_app(None)
         
@@ -54,8 +54,6 @@ def test_config_service():
     print("\n=== Testing Configuration Service ===")
     
     try:
-        from gilla_auth.api.config import ConfigService
-        
         # Get default config
         default_config = ConfigService.get_default_config()
         print("Default config:")

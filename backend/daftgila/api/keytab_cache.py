@@ -14,6 +14,7 @@ License: GNU General Public License v3.0
 import time
 import tempfile
 import os
+import redis
 from typing import Optional, Dict, Any
 from .crypto import KeytabEncryption
 
@@ -49,7 +50,6 @@ class KeytabCache:
     def _init_redis(self):
         """Initialize Redis connection if available."""
         try:
-            import redis
             redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
             self.redis_client = redis.from_url(redis_url)
             # Test connection

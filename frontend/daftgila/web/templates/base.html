@@ -19,30 +19,30 @@
     {% if is_authenticated %}
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
-            <a class="navbar-brand" href="{{ url_for('dashboard') }}">Auth Demo</a>
+                            <a class="navbar-brand" href="{{ url_for('dashboard.dashboard') }}">Auth Demo</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('dashboard') }}">Dashboard</a>
+                        <a class="nav-link" href="{{ url_for('dashboard.dashboard') }}">Dashboard</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('hello') }}">Hello</a>
+                        <a class="nav-link" href="{{ url_for('dashboard.hello') }}">Hello</a>
                     </li>
                     {% if current_user.is_admin %}
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('admin') }}">Admin</a>
+                        <a class="nav-link" href="{{ url_for('admin.admin_dashboard') }}">Admin</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('jwt_sessions') }}">JWT Sessions</a>
+                        <a class="nav-link" href="{{ url_for('admin.jwt_sessions') }}">JWT Sessions</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('oauth_providers') }}">OAuth Providers</a>
+                        <a class="nav-link" href="{{ url_for('admin.oauth_providers') }}">OAuth Providers</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('config_management') }}">Configuration</a>
+                        <a class="nav-link" href="{{ url_for('config.config_management') }}">Configuration</a>
                     </li>
                     {% endif %}
                 </ul>
@@ -52,9 +52,9 @@
                             {{ current_user.username }}
                         </a>
                         <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="{{ url_for('account') }}">Account</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('user.account') }}">Account</a></li>
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="{{ url_for('logout') }}">Logout</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}">Logout</a></li>
                         </ul>
                     </li>
                 </ul>

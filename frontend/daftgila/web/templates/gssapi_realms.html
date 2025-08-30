@@ -14,7 +14,7 @@
                     </h5>
                 </div>
                 <div class="card-body">
-                    <form method="POST" action="{{ url_for('create_gssapi_realm') }}" enctype="multipart/form-data">
+                    <form method="POST" action="{{ url_for('admin.create_gssapi_realm') }}" enctype="multipart/form-data">
                         <div class="mb-3">
                             <label for="name" class="form-label">Realm Name</label>
                             <input type="text" class="form-control" id="name" name="name" 
@@ -85,7 +85,7 @@
                         <i class="fas fa-shield-alt me-2"></i>
                         GSSAPI Realm Configuration
                     </h5>
-                    <a href="{{ url_for('admin') }}" class="btn btn-outline-secondary btn-sm">
+                    <a href="{{ url_for('admin.admin_dashboard') }}" class="btn btn-outline-secondary btn-sm">
                         <i class="fas fa-arrow-left me-2"></i>Back to Admin
                     </a>
                 </div>
@@ -159,7 +159,7 @@
                                                     <i class="fas fa-edit"></i>
                                                 </button>
                                                 <form method="POST" 
-                                                      action="{{ url_for('delete_gssapi_realm', realm_id=realm.id) }}"
+                                                      action="{{ url_for('admin.delete_gssapi_realm', realm_id=realm.id) }}"
                                                       class="d-inline"
                                                       onsubmit="return confirm('Are you sure you want to delete the GSSAPI realm \"{{ realm.name }}\"? This action cannot be undone.')">
                                                     <button type="submit" class="btn btn-sm btn-outline-danger"
@@ -196,7 +196,7 @@
                 <h5 class="modal-title">Edit GSSAPI Realm: {{ realm.name|title }}</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form method="POST" action="{{ url_for('update_gssapi_realm', realm_id=realm.id) }}" enctype="multipart/form-data">
+                            <form method="POST" action="{{ url_for('admin.update_gssapi_realm', realm_id=realm.id) }}" enctype="multipart/form-data">
                 <div class="modal-body">
                     <div class="row">
                         <div class="col-md-6">
